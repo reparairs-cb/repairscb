@@ -1,4 +1,6 @@
 import { BaseModel } from "@/types/base-model";
+import { MileageRecordBase } from "./mileage-record";
+import { MaintenanceRecordBase } from "./maintenance-record";
 
 export interface EquipmentBase extends BaseModel {
   type: string;
@@ -35,4 +37,57 @@ export interface DeleteEquipment {
 export interface EquipmentWithRecords extends EquipmentBase {
   maintenance_records?: MaintenanceRecordBase[];
   mileage_records?: MileageRecordBase[];
+}
+
+export interface EquipmentWithPaginatedRecords extends EquipmentBase {
+  maintenance_records?: {
+    total: number;
+    limit: number;
+    offset: number;
+    pages: number;
+    data: MaintenanceRecordBase[];
+  };
+  mileage_records?: {
+    total: number;
+    limit: number;
+    offset: number;
+    pages: number;
+    data: MileageRecordBase[];
+  };
+}
+
+export interface MultiEquipmentWithRecords extends MultiEquipment {
+  data: EquipmentWithPaginatedRecords[];
+}
+
+export interface EquipmentMileageRecord {
+  id: string;
+  code: string;
+  license_plate: string;
+  type: string;
+  avg_mileage: number;
+  last_mileage_value?: number;
+  last_mileage_record_date?: Date;
+}
+
+export interface MaintenaceTypePlan {
+  id: string;
+  type: string;
+  path: string;
+}
+
+export interface EquipmentMaintenancePlan {
+  equipment: EquipmentMileageRecord;
+  last_maintenance_type?: MaintenaceTypePlan;
+  next_maintenance_type?: MaintenaceTypePlan;
+  remaining_days?: number;
+  remaining_mileage?: number;
+}
+
+export interface MultiEquipmentMaintenancePlan {
+  total: number;
+  limit: number;
+  offset: number;
+  pages: number;
+  data: EquipmentMaintenancePlan[];
 }

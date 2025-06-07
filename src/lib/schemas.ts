@@ -25,7 +25,67 @@ export const sparePartSchema = z.object({
   image_url: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
 
+export const mileageSchema = z.object({
+  equipment_id: z.string().min(1, "Equipment is required"),
+  mileage: z.number().min(1, "Mileage value is required"),
+  record_date: z.date({
+    required_error: "Record Date is required",
+  }),
+});
+
+export const maintenanceSparePartSchema = z.object({
+  spare_part_id: z.string().min(1, "Spare part is required"),
+  quantity: z.number().min(1, "Quantity must be at least 1"),
+  unit_price: z.number().positive().optional(),
+});
+
+export const maintenanceActivitySchema = z.object({
+  activity_id: z.string().min(1, "Activity is required"),
+  completed: z.boolean(),
+  observations: z.string().optional(),
+});
+
+export const maintenanceRecordSchema = z
+  .object({
+    equipment_id: z.string().min(1, "Equipment is required"),
+    start_datetime: z.date({
+      required_error: "Start datetime is required",
+    }),
+    end_datetime: z.date().optional(),
+    maintenance_type_id: z.string().min(1, "Maintenance type is required"),
+    observations: z.string().optional(),
+    mileage: z.number().min(1, "Mileage value is required"),
+    spare_parts: z.array(maintenanceSparePartSchema),
+    activities: z.array(maintenanceActivitySchema),
+  })
+  .refine(
+    (data) => {
+      if (data.end_datetime && data.start_datetime) {
+        return data.end_datetime > data.start_datetime;
+      }
+      return true;
+    },
+    {
+      message: "End datetime must be after start datetime",
+      path: ["end_datetime"],
+    }
+  );
+
+export const maintenanceStageSchema = z.object({
+  maintenance_type_id: z.string().min(1, "Tipo de mantenimiento es requerido"),
+  value: z.number().min(0, "El valor debe ser mayor o igual a 0"),
+});
+
+export type MaintenanceRecordFormData = z.infer<typeof maintenanceRecordSchema>;
+export type MaintenanceSparePartFormData = z.infer<
+  typeof maintenanceSparePartSchema
+>;
+export type MaintenanceActivityFormData = z.infer<
+  typeof maintenanceActivitySchema
+>;
 export type EquipmentFormData = z.infer<typeof equipmentSchema>;
 export type ActivityFormData = z.infer<typeof activitySchema>;
 export type MaintenanceTypeFormData = z.infer<typeof maintenanceTypeSchema>;
 export type SparePartFormData = z.infer<typeof sparePartSchema>;
+export type MileageFormData = z.infer<typeof mileageSchema>;
+export type MaintenanceStageFormData = z.infer<typeof maintenanceStageSchema>;

@@ -1,4 +1,8 @@
 import { BaseModel } from "@/types/base-model";
+import { MaintenanceSparePartBase } from "./maintenance-spare-part";
+import { MaintenanceActivityBase } from "./maintenance-activity";
+import { MaintenanceTypeBase } from "./maintenance-type";
+import { EquipmentBase } from "./equipment";
 
 export interface MaintenanceRecordBase extends BaseModel {
   equipment_id: string;
@@ -6,6 +10,7 @@ export interface MaintenanceRecordBase extends BaseModel {
   end_datetime?: Date;
   maintenance_type_id: string;
   observations?: string;
+  mileage_record_id: string;
 }
 
 export type MaintenanceRecordDB = MaintenanceRecordBase;
@@ -13,7 +18,6 @@ export type MaintenanceRecordDB = MaintenanceRecordBase;
 export interface MaintenanceRecordCreate
   extends Omit<MaintenanceRecordBase, "id" | "created_at" | "updated_at"> {
   user_id: string;
-  ordered_params: string[];
 }
 
 export interface MaintenanceRecordUpdate {
@@ -23,7 +27,7 @@ export interface MaintenanceRecordUpdate {
   end_datetime?: Date;
   maintenance_type_id?: string;
   observations?: string;
-  ordered_params: string[];
+  mileage_record_id?: string;
 }
 
 export interface MultiMaintenanceRecord {
@@ -43,4 +47,11 @@ export interface MaintenanceRecordWithDetails extends MaintenanceRecordBase {
   maintenance_type?: MaintenanceTypeBase;
   spare_parts?: (MaintenanceSparePartBase & { spare_part: SparePartBase })[];
   activities?: (MaintenanceActivityBase & { activity: ActivityBase })[];
+  mileage_info?: {
+    id: string;
+    record_date: Date;
+    kilometers: number;
+  };
+  duration_hours?: number;
+  status?: "completed" | "in_progress";
 }

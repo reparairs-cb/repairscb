@@ -104,10 +104,6 @@ class ActivityService {
     userId: string
   ): Promise<MultiActivity> {
     try {
-      if (limit <= 0 || limit > 100) {
-        throw new Error("El límite debe estar entre 1 y 100");
-      }
-
       if (offset < 0) {
         throw new Error("El offset no puede ser negativo");
       }

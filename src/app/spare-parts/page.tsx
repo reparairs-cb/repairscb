@@ -55,7 +55,7 @@ export default function SparePartsPage() {
       });
 
       try {
-        const res = await fetch("/api/spare-parts");
+        const res = await fetch("/api/spare-parts?limit=0");
 
         if (!res.ok) {
           throw new Error("Failed to fetch spare parts");
@@ -197,9 +197,19 @@ export default function SparePartsPage() {
         <h1 className="text-2xl font-bold">Gestión de Repuestos</h1>
         <Button onClick={openCreateModal}>
           <Plus className="h-4 w-4 mr-2" />
-          Crear Equipo
+          Crear Repuesto
         </Button>
       </div>
+
+      {spareParts.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 text-lg">No hay repuestos disponibles.</p>
+          <p className="text-gray-400 text-sm mt-2">
+            Haz clic en &quot;Crear repuestos&quot; para agregar tu primer
+            repuestos
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {spareParts.map((item) => (
@@ -208,16 +218,15 @@ export default function SparePartsPage() {
             title={item.name}
             subtitle={item.factory_code}
             badges={[
-              { label: `$${item.price.toFixed(2)}`, variant: "secondary" },
+              { label: `S/.${item.price.toFixed(2)}`, variant: "secondary" },
               ...(item.image_url
                 ? [{ label: "Has Image", variant: "outline" as const }]
                 : []),
             ]}
             fields={[
-              { label: "Factory Code", value: item.factory_code },
-              { label: "Price", value: `S/.${item.price.toFixed(2)}` },
-              { label: "Description", value: item.description },
-              { label: "Created", value: item.created_at.toLocaleDateString() },
+              { label: "Código de Fab.", value: item.factory_code },
+              { label: "Precio", value: `S/.${item.price.toFixed(2)}` },
+              { label: "Descripción", value: item.description },
             ]}
             onEdit={() => {
               /* openEditModal(item); */

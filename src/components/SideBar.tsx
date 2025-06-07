@@ -19,6 +19,9 @@ import {
   Activity,
   Settings,
   Package,
+  Gauge,
+  Car,
+  GitCompare,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -72,10 +75,13 @@ export const SideBar = ({ session, options }: SideBarProps) => {
                 options={
                   options || [
                     DashboardRoute,
+                    MileageRoute,
+                    MaintenanceRoute,
                     EquipmentRoute,
                     ActivitiesRoute,
                     MaintenanceTypeRoute,
                     SparePartsRoute,
+                    MaintenanceStageRoute,
                   ]
                 }
                 onClose={() => setOpen(false)}
@@ -129,29 +135,39 @@ const EquipmentRoute: Option = {
   label: "Equipos",
   icon: <Wrench className="mr-2 h-4 w-4" />,
   onRedirect: (router) => router.push("/equipment"),
-  className: "text-blue-600 hover:bg-blue-100",
 };
 const ActivitiesRoute: Option = {
   label: "Actividades",
   icon: <Activity className="mr-2 h-4 w-4" />,
   onRedirect: (router) => router.push("/activities"),
-  className: "text-green-600 hover:bg-green-100",
 };
 const MaintenanceTypeRoute: Option = {
   label: "Tipos de Mantenimiento",
   icon: <Settings className="mr-2 h-4 w-4" />,
   onRedirect: (router) => router.push("/maintenance-type"),
-  className: "text-orange-600 hover:bg-orange-100",
 };
 const SparePartsRoute: Option = {
   label: "Repuestos",
   icon: <Package className="mr-2 h-4 w-4" />,
   onRedirect: (router) => router.push("/spare-parts"),
-  className: "text-purple-600 hover:bg-purple-100",
 };
 const DashboardRoute: Option = {
-  label: "Menú Principal",
+  label: "Seguimiento de Mantenimiento",
   icon: <SquareDashedKanban className="mr-2 h-4 w-4" />,
   onRedirect: (router) => router.replace("/"),
-  className: "text-gray-600 hover:bg-gray-100",
+};
+const MileageRoute: Option = {
+  label: "Registros de Kilometraje",
+  icon: <Gauge className="mr-2 h-4 w-4" />,
+  onRedirect: (router) => router.push("/mileage-record"),
+};
+const MaintenanceRoute: Option = {
+  label: "Registros de Mantenimiento",
+  icon: <Car className="mr-2 h-4 w-4" />,
+  onRedirect: (router) => router.push("/maintenance-record"),
+};
+const MaintenanceStageRoute: Option = {
+  label: "Etapas de Mantenimiento Planeado",
+  icon: <GitCompare className="mr-2 h-4 w-4" />,
+  onRedirect: (router) => router.push("/maintenance-stage"),
 };

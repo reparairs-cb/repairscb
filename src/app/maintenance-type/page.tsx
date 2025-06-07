@@ -49,7 +49,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const indent = level * 20;
 
   return (
-    <div className="border rounded-lg mb-2">
+    <div className="border rounded-lg m-2">
       <div
         className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
         style={{ paddingLeft: `${16 + indent}px` }}
@@ -79,9 +79,6 @@ const TreeNode: React.FC<TreeNodeProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500 mt-1">
-              Creado: {node.created_at.toLocaleDateString()}
-            </p>
             {hasChildren && (
               <p className="text-xs text-gray-400 mt-1">
                 {node.children!.length} subtipo
@@ -239,7 +236,7 @@ export default function MaintenanceTypePage() {
       });
 
       try {
-        const res = await fetch("/api/maintenance-type");
+        const res = await fetch("/api/maintenance-type?limit=0");
 
         if (!res.ok) {
           throw new Error("Failed to fetch maintenance types");
@@ -562,7 +559,7 @@ export default function MaintenanceTypePage() {
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar tipo padre..." />
                       </SelectTrigger>
-                      <SelectContent className="z-[10000]">
+                      <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
                         {maintenanceTypes.map((node) => (
                           <ParentOption
                             key={node.id}

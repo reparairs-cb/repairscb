@@ -1,9 +1,15 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, ChevronRight } from "lucide-react";
 
 interface DataCardProps {
   title: string;
@@ -13,8 +19,9 @@ interface DataCardProps {
     variant?: "default" | "secondary" | "destructive" | "outline";
   }[];
   fields: { label: string; value: string | number | undefined }[];
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onDetails?: () => void;
 }
 
 export function DataCard({
@@ -24,6 +31,7 @@ export function DataCard({
   fields,
   onEdit,
   onDelete,
+  onDetails,
 }: DataCardProps) {
   return (
     <Card className="h-full flex flex-col">
@@ -35,14 +43,21 @@ export function DataCard({
               <p className="text-sm text-muted-foreground">{subtitle}</p>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={onDelete}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          {(onEdit || onDelete) && (
+            <div className="flex gap-2">
+              {onEdit && (
+                <Button variant="outline" size="sm" onClick={onEdit}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+
+              {onDelete && (
+                <Button variant="outline" size="sm" onClick={onDelete}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
         {badges && badges.length > 0 && (
           <div className="flex flex-wrap gap-1 pt-2">
@@ -68,6 +83,15 @@ export function DataCard({
           ))}
         </div>
       </CardContent>
+      {onDetails && (
+        <CardFooter className="">
+          <div className="flex justify-end">
+            <Button variant="link" size="sm" onClick={onDetails}>
+              Ver Detalles <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </CardFooter>
+      )}
     </Card>
   );
 }

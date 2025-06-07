@@ -10,20 +10,6 @@ export interface MaintenanceActivityBase {
 
 export type MaintenanceActivityDB = MaintenanceActivityBase;
 
-export interface MaintenanceActivityCreate
-  extends Omit<MaintenanceActivityBase, "id" | "created_at" | "updated_at"> {
-  ordered_params: string[];
-}
-
-export interface MaintenanceActivityUpdate {
-  id: string;
-  maintenance_record_id?: string;
-  activity_id?: string;
-  completed?: boolean;
-  observations?: string;
-  ordered_params: string[];
-}
-
 export interface MultiMaintenanceActivity {
   total: number;
   limit: number;
@@ -32,6 +18,66 @@ export interface MultiMaintenanceActivity {
   data: MaintenanceActivityBase[];
 }
 
+export interface MaintenanceActivityCreate
+  extends Omit<MaintenanceActivityBase, "id" | "created_at" | "updated_at"> {
+  user_id: string;
+}
+
+export interface MaintenanceActivityUpdate {
+  id: string;
+  maintenance_record_id?: string;
+  activity_id?: string;
+  completed?: boolean;
+  observations?: string;
+  user_id: string;
+}
+
+export interface MaintenanceActivityWithDetails
+  extends MaintenanceActivityBase {
+  activity: ActivityBase;
+  completion_status?: "completed" | "pending";
+}
+
+export interface MaintenanceActivityProgress {
+  maintenance_record_id: string;
+  total_activities: number;
+  completed_activities: number;
+  pending_activities: number;
+  progress_percentage: number;
+  is_complete: boolean;
+}
+
+export interface MaintenanceActivityStats {
+  total_activities: number;
+  completed_activities: number;
+  pending_activities: number;
+  completion_rate_percentage: number;
+  most_common_activities: {
+    activity_id: string;
+    activity_name: string;
+    usage_count: number;
+  }[];
+}
+
+export interface PendingMaintenanceActivity extends MaintenanceActivityBase {
+  activity?: Pick<ActivityBase, "id" | "name" | "description">;
+  maintenance_info?: Pick<
+    MaintenanceRecordBase,
+    "id" | "equipment_id" | "start_datetime" | "maintenance_type_id"
+  >;
+}
+
+export interface BulkMaintenanceActivityUpdate {
+  maintenance_record_id: string;
+  activities: Array<{
+    activity_id: string;
+    completed?: boolean;
+    observations?: string;
+  }>;
+  user_id: string;
+}
+
 export interface DeleteMaintenanceActivity {
   id: string;
+  user_id: string;
 }

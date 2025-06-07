@@ -19,49 +19,9 @@ import { Noise } from "@/components/Noise";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useSession } from "next-auth/react";
 import { toastVariables } from "@/components/ToastVariables";
-
-// Recursive component for maintenance type selection dropdown
-interface MaintenanceTypeOptionProps {
-  node: MaintenanceTypeWithChildren;
-  level: number;
-  selectedValue?: string;
-}
-
-const MaintenanceTypeOption: React.FC<MaintenanceTypeOptionProps> = ({
-  node,
-  level,
-  selectedValue,
-}) => {
-  const indent = "—".repeat(level);
-
-  return (
-    <>
-      <SelectItem
-        value={node.id}
-        className={selectedValue === node.id ? "bg-blue-50" : ""}
-      >
-        {indent} {node.type} (Nivel {node.level})
-      </SelectItem>
-      {node.children?.map((child) => (
-        <MaintenanceTypeOption
-          key={child.id}
-          node={child}
-          level={level + 1}
-          selectedValue={selectedValue}
-        />
-      ))}
-    </>
-  );
-};
+import { MaintenanceTypeSelect } from "@/components/MaintenanceTypeSelect";
 
 export default function ActivityPage() {
   const { data: session } = useSession();
@@ -127,16 +87,22 @@ export default function ActivityPage() {
 
       try {
         // Fetch activities
-        const activitiesRes = await fetch("/api/activities");
+        const activitiesRes = await fetch("/api/activities?limit=0");
         if (!activitiesRes.ok) {
+          const err = await activitiesRes.json();
+          console.error("Error fetching activities:", err);
           throw new Error("Failed to fetch activities");
         }
         const activitiesData = (await activitiesRes.json())
           .data as MultiActivity;
 
         // Fetch maintenance types
-        const maintenanceTypesRes = await fetch("/api/maintenance-type");
+        const maintenanceTypesRes = await fetch(
+          "/api/maintenance-type?limit=0"
+        );
         if (!maintenanceTypesRes.ok) {
+          const err = await maintenanceTypesRes.json();
+          console.error("Error fetching maintenance types:", err);
           throw new Error("Failed to fetch maintenance types");
         }
         const maintenanceTypesData = (await maintenanceTypesRes.json())
@@ -338,7 +304,7 @@ export default function ActivityPage() {
     setEditingItem(null);
     reset();
   };
-  
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openEditModal = (item: ActivityBase) => {
     setEditingItem(item);
@@ -464,21 +430,13 @@ export default function ActivityPage() {
                   name="maintenance_type_id"
                   control={control}
                   render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar tipo de mantenimiento..." />
-                      </SelectTrigger>
-                      <SelectContent className="z-[10000]">
-                        {maintenanceTypes.map((node) => (
-                          <MaintenanceTypeOption
-                            key={node.id}
-                            node={node}
-                            level={0}
-                            selectedValue={field.value}
-                          />
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MaintenanceTypeSelect
+                      maintenanceTypes={maintenanceTypes}
+                      selectedValue={field.value}
+                      onChange={(value) => {
+                        field.onChange(value);
+                      }}
+                    />
                   )}
                 />
                 {errors.maintenance_type_id && (

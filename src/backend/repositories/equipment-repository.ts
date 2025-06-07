@@ -6,6 +6,10 @@ import {
   EquipmentUpdate,
   MultiEquipment,
   DeleteEquipment,
+  EquipmentWithPaginatedRecords,
+  MultiEquipmentWithRecords,
+  MultiEquipmentMaintenancePlan,
+  EquipmentMaintenancePlan,
 } from "@/types/equipment";
 
 class EquipmentRepository {
@@ -307,6 +311,147 @@ class EquipmentRepository {
         console.error("Error al obtener equipment por placa:", err.stack);
       } else {
         console.error("Error al obtener equipment por placa:", err);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Obtener equipos con registros de mantenimiento y kilometraje
+   */
+  async getAllWithRecords(
+    user_id: string,
+    limit: number = 10,
+    offset: number = 0,
+    mileage_limit: number = 30,
+    mileage_offset: number = 0
+  ): Promise<MultiEquipmentWithRecords> {
+    try {
+      const result = await this.db.query(
+        "SELECT get_all_equipment_with_record($1, $2, $3, $4, $5)",
+        [user_id, limit, offset, mileage_limit, mileage_offset]
+      );
+
+      const response = result.rows[0].get_all_equipment_with_record;
+
+      const data: EquipmentWithPaginatedRecords[] = response.data.map(
+        (equipment: EquipmentWithPaginatedRecords) => ({
+          id: equipment.id,
+          type: equipment.type,
+          license_plate: equipment.license_plate,
+          code: equipment.code,
+          created_at: new Date(equipment.created_at),
+          updated_at: equipment.updated_at
+            ? new Date(equipment.updated_at)
+            : undefined,
+          user_id: equipment.user_id,
+          mileage_records: equipment.mileage_records
+            ? {
+                total: equipment.mileage_records.total,
+                limit: equipment.mileage_records.limit,
+                offset: equipment.mileage_records.offset,
+                pages: equipment.mileage_records.pages,
+                data: equipment.mileage_records.data.map((record) => ({
+                  id: record.id,
+                  equipment_id: record.equipment_id,
+                  kilometers: record.kilometers,
+                  record_date: new Date(record.record_date),
+                  created_at: new Date(record.created_at),
+                  updated_at: record.updated_at
+                    ? new Date(record.updated_at)
+                    : undefined,
+                })),
+              }
+            : undefined,
+        })
+      );
+
+      return {
+        total: response.total,
+        limit: response.limit,
+        offset: response.offset,
+        pages: response.pages,
+        data,
+      };
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error("Error al obtener equipments con registros:", err.stack);
+      } else {
+        console.error("Error al obtener equipments con registros:", err);
+      }
+      throw err;
+    }
+  }
+
+  async getMaintenancePlan(
+    user_id: string,
+    limit: number = 10,
+    offset: number = 0
+  ): Promise<MultiEquipmentMaintenancePlan> {
+    try {
+      const result = await this.db.query(
+        "SELECT get_all_maintenance_plan($1, $2, $3)",
+        [user_id, limit, offset]
+      );
+
+      const response = result.rows[0].get_all_maintenance_plan;
+
+      const data: EquipmentMaintenancePlan[] = response.data.map(
+        (eqplan: EquipmentMaintenancePlan) => ({
+          equipment: {
+            id: eqplan.equipment.id,
+            type: eqplan.equipment.type,
+            license_plate: eqplan.equipment.license_plate,
+            code: eqplan.equipment.code,
+            avg_mileage: eqplan.equipment.avg_mileage,
+            last_mileage_value: eqplan.equipment.last_mileage_value
+              ? eqplan.equipment.last_mileage_value
+              : undefined,
+            last_mileage_record_date: eqplan.equipment.last_mileage_record_date
+              ? new Date(eqplan.equipment.last_mileage_record_date)
+              : undefined,
+          },
+          last_maintenance_type: eqplan.last_maintenance_type
+            ? {
+                id: eqplan.last_maintenance_type.id,
+                type: eqplan.last_maintenance_type.type,
+                path: eqplan.last_maintenance_type.path,
+              }
+            : undefined,
+          next_maintenance_type: eqplan.next_maintenance_type
+            ? {
+                id: eqplan.next_maintenance_type.id,
+                type: eqplan.next_maintenance_type.type,
+                path: eqplan.next_maintenance_type.path,
+              }
+            : undefined,
+          remaining_days: eqplan.remaining_days
+            ? Number(eqplan.remaining_days)
+            : undefined,
+          remaining_mileage: eqplan.remaining_mileage
+            ? Number(eqplan.remaining_mileage)
+            : undefined,
+        })
+      );
+
+      return {
+        total: response.total,
+        limit: response.limit,
+        offset: response.offset,
+        pages: response.pages,
+        data,
+      };
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(
+          "Error al obtener el plan de mantenimiento del equipo:",
+          err.stack
+        );
+      } else {
+        console.error(
+          "Error al obtener el plan de mantenimiento del equipo:",
+          err
+        );
       }
       throw err;
     }

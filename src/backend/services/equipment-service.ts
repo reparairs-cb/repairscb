@@ -3,6 +3,8 @@ import {
   EquipmentBase,
   EquipmentCreate,
   EquipmentUpdate,
+  MultiEquipmentMaintenancePlan,
+  MultiEquipmentWithRecords,
 } from "@/types/equipment";
 
 /**
@@ -88,6 +90,40 @@ class EquipmentService {
       return await this.repository.delete({ id });
     } catch (error) {
       console.error("Error al eliminar el equipo:", error);
+      throw error;
+    }
+  }
+
+  async getAllWithRecords(
+    userId: string,
+    limit: number,
+    offset: number,
+    mileageLimit?: number,
+    mileageOffset?: number
+  ): Promise<MultiEquipmentWithRecords> {
+    try {
+      return await this.repository.getAllWithRecords(
+        userId,
+        limit,
+        offset,
+        mileageLimit,
+        mileageOffset
+      );
+    } catch (error) {
+      console.error("Error al obtener todos los equipos con registros:", error);
+      throw error;
+    }
+  }
+
+  async getMaintenancePlan(
+    userId: string,
+    limit: number = 10,
+    offset: number = 0
+  ): Promise<MultiEquipmentMaintenancePlan> {
+    try {
+      return await this.repository.getMaintenancePlan(userId, limit, offset);
+    } catch (error) {
+      console.error("Error al obtener el plan de mantenimiento:", error);
       throw error;
     }
   }

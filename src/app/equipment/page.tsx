@@ -94,7 +94,7 @@ export default function EquipmentPage() {
     });
 
     try {
-      const res = await fetch("/api/equipments?limit=100", {
+      const res = await fetch("/api/equipments?limit=0", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

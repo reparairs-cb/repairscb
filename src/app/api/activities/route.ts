@@ -66,12 +66,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    if (!description || typeof description !== "string") {
-      return NextResponse.json(
-        { success: false, message: "Descripción de actividad inválida" },
-        { status: 400 }
-      );
-    }
+
     if (
       !maintenance_type_id ||
       typeof maintenance_type_id !== "string" ||

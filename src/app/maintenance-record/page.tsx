@@ -49,48 +49,6 @@ interface SelectedActivity {
   observations?: string;
 }
 
-const findMaintenanceTypeByPath = (
-  types: MaintenanceTypeWithChildren[],
-  path: string
-): MaintenanceTypeWithChildren | undefined => {
-  for (const maintenanceType of types) {
-    if (maintenanceType.path === path) return maintenanceType;
-    if (maintenanceType.children) {
-      const found = findMaintenanceTypeByPath(maintenanceType.children, path);
-      if (found) return found;
-    }
-  }
-};
-
-const findMaintenanceType = (
-  types: MaintenanceTypeWithChildren[],
-  id: string
-): MaintenanceTypeWithChildren | undefined => {
-  for (const type of types) {
-    if (type.id === id) return type;
-    if (type.children) {
-      const found = findMaintenanceType(type.children, id);
-      if (found) return found;
-    }
-  }
-  return undefined;
-};
-
-const excludeMaintenanceTypes = (
-  types: MaintenanceTypeWithChildren[],
-  excludedPaths: string[]
-): MaintenanceTypeWithChildren[] => {
-  return types
-    .map((type) => {
-      if (type.path && excludedPaths.includes(type.path)) return null;
-      const children = type.children
-        ? excludeMaintenanceTypes(type.children, excludedPaths)
-        : undefined;
-      return { ...type, children };
-    })
-    .filter(Boolean) as MaintenanceTypeWithChildren[];
-};
-
 export default function MaintenanceRecordsPage() {
   const { data: session } = useSession();
   const [maintenanceRecords, setMaintenanceRecords] = useState<
@@ -99,9 +57,6 @@ export default function MaintenanceRecordsPage() {
   const [equipments, setEquipments] = useState<EquipmentBase[]>([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState<
     MaintenanceTypeBase[]
-  >([]);
-  const [filteredMaintenanceTypes, setFilteredMaintenanceTypes] = useState<
-    MaintenanceTypeWithChildren[]
   >([]);
   const [activities, setActivities] = useState<ActivityBase[]>([]);
   const [spareParts, setSpareParts] = useState<SparePartBase[]>([]);
@@ -283,7 +238,6 @@ export default function MaintenanceRecordsPage() {
           maintenanceTypesData.data
         );
         setMaintenanceTypes(processedMaintenanceTypes);
-        setFilteredMaintenanceTypes(processedMaintenanceTypes);
 
         setActivities(activitiesData.data.data);
         setSpareParts(sparePartsData.data.data);
@@ -324,132 +278,35 @@ export default function MaintenanceRecordsPage() {
 
   // Fetch mileage records when equipment is selected
   useEffect(() => {
-    const fetchLastMaintenance = async () => {
-      if (!selectedEquipmentId) {
-        setFilteredMaintenanceTypes(maintenanceTypes);
-      }
+    if (mileageRecords.length > 0) {
+      console.log(
+        "Using cached mileage records for equipment:",
+        selectedEquipmentId
+      );
 
-      try {
-        const res = await fetch(
-          `/api/maintenance-records/by-equipment/by-search-term`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              equipment_id: selectedEquipmentId,
-              search_term: "Preventivo",
-              limit: 1,
-            }),
-          }
+      const todayMileageEquipment = mileageRecords.find((record) => {
+        console.log("Checking mileage record:", record);
+        console.log("Selected equipment ID:", selectedEquipmentId);
+        console.log("Today's date:", new Date().toDateString());
+        console.log("Record date:", record.record_date.toDateString());
+
+        return (
+          record.equipment_id === selectedEquipmentId &&
+          record.record_date.toDateString() === new Date().toDateString()
         );
+      });
 
-        if (!res.ok) {
-          const err = await res.json();
-          console.error(err);
-          throw new Error("Failed to fetch last maintenance record");
-        }
-
-        const data = (await res.json()).data as {
-          total: number;
-          limit: number;
-          offset: number;
-          pages: number;
-          equipment_id: string;
-          data: MaintenanceRecordWithDetails[];
-        };
-
-        if (data.data.length > 0) {
-          const lastRecord = data.data[0];
-
-          const lastMaintenanceType = findMaintenanceType(
-            maintenanceTypes,
-            lastRecord.maintenance_type_id
-          );
-
-          if (lastMaintenanceType) {
-            const lastMIndex = lastMaintenanceType.path
-              ?.split("/")[1]
-              .charAt(1);
-
-            if (!lastMIndex) {
-              console.error("Last maintenance type index not found in path");
-              throw new Error("Last maintenance type index not found in path");
-            }
-
-            try {
-              const last = parseInt(lastMIndex, 10);
-              const nextMaintenanceType = findMaintenanceTypeByPath(
-                filteredMaintenanceTypes,
-                `Preventivo/M${last + 1}`
-              );
-
-              const excludedPaths = [];
-
-              if (nextMaintenanceType) {
-                for (let i = 1; i <= last; i++) {
-                  excludedPaths.push(`Preventivo/M${i}`);
-                }
-              } else {
-                for (let i = 1; i < last; i++) {
-                  excludedPaths.push(`Preventivo/M${i}`);
-                }
-              }
-
-              setFilteredMaintenanceTypes(
-                excludeMaintenanceTypes(filteredMaintenanceTypes, excludedPaths)
-              );
-            } catch (error) {
-              console.error("Error processing last maintenance type:", error);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching last maintenance record:", error);
-        setNoise({
-          type: "error",
-          styleType: "modal",
-          message: "Error al cargar el último mantenimiento.",
-        });
-      }
-    };
-
-    if (selectedEquipmentId) {
-      if (mileageRecords.length > 0) {
+      if (todayMileageEquipment) {
         console.log(
-          "Using cached mileage records for equipment:",
-          selectedEquipmentId
+          "Found today's mileage record for equipment:",
+          todayMileageEquipment
         );
-
-        const todayMileageEquipment = mileageRecords.find((record) => {
-          console.log("Checking mileage record:", record);
-          console.log("Selected equipment ID:", selectedEquipmentId);
-          console.log("Today's date:", new Date().toDateString());
-          console.log("Record date:", record.record_date.toDateString());
-
-          return (
-            record.equipment_id === selectedEquipmentId &&
-            record.record_date.toDateString() === new Date().toDateString()
-          );
-        });
-
-        if (todayMileageEquipment) {
-          console.log(
-            "Found today's mileage record for equipment:",
-            todayMileageEquipment
-          );
-          setValue("mileage", todayMileageEquipment.kilometers);
-          setSelectedMileageRecord(todayMileageEquipment);
-        } else {
-          setValue("mileage", 0);
-          setSelectedMileageRecord(null);
-        }
+        setValue("mileage", todayMileageEquipment.kilometers);
+        setSelectedMileageRecord(todayMileageEquipment);
+      } else {
+        setValue("mileage", 0);
+        setSelectedMileageRecord(null);
       }
-
-      fetchLastMaintenance();
-    } else {
-      setFilteredMaintenanceTypes(maintenanceTypes);
     }
   }, [selectedEquipmentId]);
 
@@ -468,6 +325,16 @@ export default function MaintenanceRecordsPage() {
       const maintenancePayload = {
         ...data,
         mileage_record: selectedMileageRecord,
+        activities: data.activities.map((act) => ({
+          activity_id: act.activity_id,
+          completed: act.completed,
+          observations: act.observations || "",
+        })),
+        spare_parts: data.spare_parts.map((sp) => ({
+          spare_part_id: sp.spare_part_id,
+          quantity: sp.quantity,
+          unit_price: sp.unit_price,
+        })),
       };
 
       const res = await fetch("/api/maintenance-records", {
@@ -589,54 +456,35 @@ export default function MaintenanceRecordsPage() {
     });
 
     try {
+      if (data.spare_parts.some((sp) => !sp.spare_part_id)) {
+        toastVariables.error(
+          "Necesita seleccionar los repuestos para el mantenimiento."
+        );
+        return;
+      }
+
+      if (data.activities.some((act) => !act.activity_id)) {
+        toastVariables.error(
+          "Necesita seleccionar las actividades para el mantenimiento."
+        );
+        return;
+      }
+
       const updatePayload = {
         ...data,
         id: editingItem.id,
-        start_datetime: new Date(data.start_datetime),
-        end_datetime: data.end_datetime
-          ? new Date(data.end_datetime)
-          : undefined,
-        created_at: new Date(),
-        updated_at: new Date(),
-        equipment: equipments.find(
-          (eq) => eq.id === data.equipment_id
-        ) as EquipmentBase,
-        maintenance_type: maintenanceTypes.find(
-          (mt) => mt.id === data.maintenance_type_id
-        ) as MaintenanceTypeBase,
-        mileage_record_id: editingItem.mileage_record_id,
-
-        mileage_info: editingItem.mileage_info
-          ? {
-              kilometers: data.mileage,
-              record_date: editingItem.mileage_info.record_date,
-              id: editingItem.mileage_record_id,
-            }
-          : undefined,
         spare_parts: data.spare_parts.map((sp) => ({
-          id: sp.spare_part_id,
+          id: sp.id,
           spare_part_id: sp.spare_part_id,
           quantity: sp.quantity,
           unit_price: sp.unit_price,
-          spare_part: spareParts.find(
-            (spare) => spare.id === sp.spare_part_id
-          ) as SparePartBase,
-          maintenance_record_id: editingItem.id,
-          created_at: new Date(),
         })),
-        activities: selectedActivities.map((act, index) => ({
-          id: editingItem.activities?.[index].id || crypto.randomUUID(),
+        activities: data.activities.map((act) => ({
+          id: act.id,
           activity_id: act.activity_id,
           completed: act.completed,
-          observations: act.observations,
-          activity: activities.find(
-            (activity) => activity.id === act.activity_id
-          ) as ActivityBase,
-          maintenance_record_id: editingItem.id,
-          created_at: editingItem.created_at,
-          updated_at: new Date(),
+          observations: act.observations || "",
         })),
-        user_id: session.user.id,
       };
 
       const res = await fetch(`/api/maintenance-records`, {
@@ -648,15 +496,55 @@ export default function MaintenanceRecordsPage() {
       });
 
       if (!res.ok) {
+        const err = await res.json();
+        console.error("Error updating maintenance record:", err);
         throw new Error("Failed to update maintenance record");
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const updatedRecord = (await res.json())
         .data as MaintenanceRecordWithDetails;
+
       setMaintenanceRecords((prev) =>
         prev.map((item) =>
-          item.id === updatePayload.id ? updatePayload : item
+          item.id === editingItem.id
+            ? {
+                ...item,
+                start_datetime: new Date(data.start_datetime),
+                end_datetime: data.end_datetime
+                  ? new Date(data.end_datetime)
+                  : undefined,
+                maintenance_type_id: data.maintenance_type_id,
+                observations: data.observations || "",
+                mileage_info: {
+                  kilometers: data.mileage,
+                  record_date: item.mileage_info?.record_date || new Date(),
+                  id: item.mileage_info?.id || crypto.randomUUID(),
+                },
+                spare_parts: data.spare_parts.map((sp) => ({
+                  id: sp.id || crypto.randomUUID(),
+                  spare_part_id: sp.spare_part_id,
+                  quantity: sp.quantity,
+                  unit_price: sp.unit_price,
+                  spare_part: spareParts.find(
+                    (spare) => spare.id === sp.spare_part_id
+                  ) as SparePartBase,
+                  maintenance_record_id: item.id,
+                  created_at: new Date(),
+                })),
+                activities: data.activities.map((act) => ({
+                  id: act.id || crypto.randomUUID(),
+                  activity_id: act.activity_id,
+                  completed: act.completed,
+                  observations: act.observations || "",
+                  activity: activities.find(
+                    (activity) => activity.id === act.activity_id
+                  ) as ActivityBase,
+                  maintenance_record_id: item.id, // Simulate new ID for demo purposes
+                  created_at: new Date(),
+                })),
+              }
+            : item
         )
       );
 
@@ -674,11 +562,17 @@ export default function MaintenanceRecordsPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/maintenance-records/${id}`, {
+      const res = await fetch(`/api/maintenance-records`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
       });
 
       if (!res.ok) {
+        const err = await res.json();
+        console.error("Error deleting maintenance record:", err);
         throw new Error("Failed to delete maintenance record");
       }
 
@@ -713,6 +607,7 @@ export default function MaintenanceRecordsPage() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openEditModal = (item: MaintenanceRecordWithDetails) => {
     setEditingItem(item);
+    console.log("Editing item:", item);
     setValue("equipment_id", item.equipment_id);
     setValue("start_datetime", item.start_datetime);
     setValue("end_datetime", item.end_datetime);
@@ -829,10 +724,10 @@ export default function MaintenanceRecordsPage() {
                 },
               ]}
               onEdit={() => {
-                //openEditModal(item);
+                openEditModal(item);
               }}
               onDelete={() => {
-                //handleDelete(item.id);
+                handleDelete(item.id);
               }}
             />
           ))}
@@ -892,7 +787,7 @@ export default function MaintenanceRecordsPage() {
                     control={control}
                     render={({ field }) => (
                       <MaintenanceTypeSelect
-                        maintenanceTypes={filteredMaintenanceTypes}
+                        maintenanceTypes={maintenanceTypes}
                         selectedValue={field.value}
                         onChange={(value) => field.onChange(value)}
                       />

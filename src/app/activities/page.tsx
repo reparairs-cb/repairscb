@@ -33,7 +33,12 @@ export default function ActivityPage() {
     MaintenanceTypeBase[]
   >([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [details, setDetails] = useState<ActivityBase | null>(null);
   const [editingItem, setEditingItem] = useState<ActivityBase | null>(null);
+  const [updateRestrictions, setUpdateRestrictions] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [loadingRestrictions, setLoadingRestrictions] = useState(false);
   const [noise, setNoise] = useState<NoiseType | null>({
     type: "loading",
     styleType: "page",
@@ -55,7 +60,6 @@ export default function ActivityPage() {
     },
   });
 
-  // Get maintenance type name by ID
   const getMaintenanceTypeName = (maintenanceTypeId: string): string => {
     const maintenanceType = flatMaintenanceTypes.find(
       (mt) => mt.id === maintenanceTypeId
@@ -63,7 +67,6 @@ export default function ActivityPage() {
     return maintenanceType?.type || "Tipo no encontrado";
   };
 
-  // Get maintenance type path for display
   const getMaintenanceTypePath = (maintenanceTypeId: string): string => {
     const maintenanceType = flatMaintenanceTypes.find(
       (mt) => mt.id === maintenanceTypeId
@@ -71,8 +74,9 @@ export default function ActivityPage() {
     if (!maintenanceType) return "";
 
     if (maintenanceType.path) {
-      return `${maintenanceType.path}/${maintenanceType.type}`;
+      return maintenanceType.path;
     }
+
     return maintenanceType.type;
   };
 
@@ -240,13 +244,20 @@ export default function ActivityPage() {
       message: "Actualizando actividad...",
     });
 
+    const updatedData = {
+      ...data,
+      id: editingItem.id,
+      created_at: editingItem.created_at,
+      user_id: editingItem.user_id,
+    };
+
     try {
-      const res = await fetch(`/api/activities/${editingItem.id}`, {
+      const res = await fetch(`/api/activities`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(updatedData),
       });
 
       if (!res.ok) {
@@ -302,11 +313,45 @@ export default function ActivityPage() {
   const handleCancel = () => {
     setIsModalOpen(false);
     setEditingItem(null);
+    setUpdateRestrictions({});
+    setLoadingRestrictions(false);
     reset();
   };
 
+  const handleRestrictionCheck = async (activityId: string) => {
+    setLoadingRestrictions(true);
+    try {
+      const res = await fetch("/api/activities/in-maintenance-record", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ activityId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Error checking restrictions:", err);
+        throw new Error("Failed to check restrictions");
+      }
+
+      const result = (await res.json()).data as boolean;
+
+      setUpdateRestrictions((prev) => ({
+        ...prev,
+        ["maintenance_type"]: result,
+      }));
+
+      setLoadingRestrictions(false);
+    } catch (error) {
+      console.error("Error checking restrictions:", error);
+      setLoadingRestrictions(false);
+      return false;
+    }
+  };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openEditModal = (item: ActivityBase) => {
+    handleRestrictionCheck(item.id);
     setEditingItem(item);
     setValue("name", item.name);
     setValue("description", item.description || "");
@@ -356,28 +401,15 @@ export default function ActivityPage() {
                 label: "Tipo de Mantenimiento",
                 value: getMaintenanceTypePath(item.maintenance_type_id),
               },
-              {
-                label: "Descripción",
-                value: item.description || "Sin descripción",
-              },
-              {
-                label: "Creado",
-                value: item.created_at.toLocaleDateString(),
-              },
-              ...(item.updated_at
-                ? [
-                    {
-                      label: "Actualizado",
-                      value: item.updated_at.toLocaleDateString(),
-                    },
-                  ]
-                : []),
             ]}
             onEdit={() => {
-              /* openEditModal(item); */
+              openEditModal(item);
             }}
             onDelete={() => {
-              /* handleDelete(item.id); */
+              handleDelete(item.id);
+            }}
+            onDetails={() => {
+              setDetails(item);
             }}
           />
         ))}
@@ -434,7 +466,12 @@ export default function ActivityPage() {
                       maintenanceTypes={maintenanceTypes}
                       selectedValue={field.value}
                       onChange={(value) => {
-                        field.onChange(value);
+                        if (
+                          !editingItem &&
+                          !updateRestrictions["maintenance_type"]
+                        ) {
+                          field.onChange(value);
+                        }
                       }}
                     />
                   )}
@@ -444,6 +481,20 @@ export default function ActivityPage() {
                     {errors.maintenance_type_id.message}
                   </p>
                 )}
+                <div className="mt-2 max-w-sm">
+                  {editingItem && loadingRestrictions && (
+                    <p className="text-yellow-500 text-sm mt-1">
+                      Verificando restricciones de actualización...
+                    </p>
+                  )}
+                  {editingItem && updateRestrictions["maintenance_type"] && (
+                    <p className="text-red-500 text-sm mt-1">
+                      No puedes actualizar el tipo de mantenimiento de esta
+                      actividad porque ya está asociada a un registro de
+                      mantenimiento.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="mb-4">
@@ -476,11 +527,85 @@ export default function ActivityPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" className="flex-1">
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={(editingItem && loadingRestrictions) || false}
+                >
                   {editingItem ? "Actualizar Actividad" : "Crear Actividad"}
                 </Button>
               </div>
             </form>
+          </div>
+        </Modal>
+      )}
+
+      {details && (
+        <Modal onClose={() => setDetails(null)}>
+          <div className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">
+                Detalles de la Actividad
+              </h2>
+              <div className="space-y-4">
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">Nombre</span>
+                  <span>{details.name}</span>
+                </div>
+
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">Descripción</span>
+                  <span>{details.description || "No disponible"}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">
+                    Tipo de Mantenimiento
+                  </span>
+                  <span>
+                    {getMaintenanceTypeName(details.maintenance_type_id)}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold">
+                    Fecha de Creación
+                  </span>
+                  <span>
+                    {details.created_at.toLocaleDateString("es-ES", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    })}{" "}
+                    {details.created_at.toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                {details.updated_at && (
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold">
+                      Fecha de Actualización
+                    </span>
+                    <span>
+                      {details.updated_at.toLocaleDateString("es-ES", {
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      })}{" "}
+                      {details.updated_at.toLocaleTimeString("es-ES", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-4 border-t">
+              <Button onClick={() => setDetails(null)} className="w-full">
+                Cerrar
+              </Button>
+            </div>
           </div>
         </Modal>
       )}

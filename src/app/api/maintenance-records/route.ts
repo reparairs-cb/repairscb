@@ -270,9 +270,88 @@ export async function PUT(request: NextRequest) {
       mileage_record_id: body.mileage_record_id,
     });
 
+    if (!result) {
+      return NextResponse.json(
+        { success: false, message: "Error al actualizar el registro" },
+        { status: 500 }
+      );
+    }
+
+    const updated_MaintenanceRecord: MaintenanceRecordWithDetails = {
+      id: result.id,
+      equipment_id: body.equipment_id,
+      maintenance_type_id: body.maintenance_type_id,
+      mileage_record_id: body.mileage_record_id,
+      start_datetime: body.start_datetime,
+      end_datetime: body.end_datetime,
+      observations: body.observations,
+      created_at: body.created_at,
+      updated_at: body.updated_at,
+      user_id: session.user.id,
+      mileage_info: {
+        id: body.mileage_record_id,
+        record_date: body.start_datetime,
+        kilometers: body.mileage,
+      },
+    };
+
+    if (
+      body.activities &&
+      Array.isArray(body.activities) &&
+      body.activities.length > 0
+    ) {
+      const activitiesResult = await maintenanceActivityService.bulkUpdate({
+        maintenance_record_id: body.id,
+        activities: body.activities,
+        user_id: session.user.id,
+      });
+
+      updated_MaintenanceRecord.activities =
+        activitiesResult.created_activities.map((act, index) => {
+          return {
+            id: act.id,
+            maintenance_record_id: activitiesResult.maintenance_record_id,
+            activity_id: body.activities[index].activity_id,
+            completed: body.activities[index].completed,
+            observations: body.activities[index].observations,
+            created_at: act.created_at,
+            updated_at: act.created_at,
+            user_id: session.user.id,
+            activity: body.activities[index],
+          };
+        });
+    }
+
+    if (
+      body.spare_parts &&
+      Array.isArray(body.spare_parts) &&
+      body.spare_parts.length > 0
+    ) {
+      const sparePartsResult = await maintenanceSparePartService.bulkUpdate({
+        maintenance_record_id: body.id,
+        spare_parts: body.spare_parts,
+        user_id: session.user.id,
+      });
+
+      updated_MaintenanceRecord.spare_parts =
+        sparePartsResult.created_spare_parts.map((sp, index) => {
+          return {
+            id: sp.id,
+            maintenance_record_id: sparePartsResult.maintenance_record_id,
+            spare_part_id: body.spare_parts[index].spare_part_id,
+            quantity: body.spare_parts[index].quantity,
+            unit_price: body.spare_parts[index].price,
+            created_at: sp.created_at,
+            updated_at: sp.created_at,
+            user_id: session.user.id,
+            spare_part: body.spare_parts[index],
+          };
+        });
+    }
+
     return NextResponse.json({
       success: true,
-      data: result,
+      data: updated_MaintenanceRecord,
     });
   } catch (error) {
     console.error("Error en PUT /api/maintenance-records:", error);

@@ -37,12 +37,14 @@ export const maintenanceSparePartSchema = z.object({
   spare_part_id: z.string().min(1, "Spare part is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unit_price: z.number().positive().optional(),
+  id: z.string().optional(),
 });
 
 export const maintenanceActivitySchema = z.object({
   activity_id: z.string().min(1, "Activity is required"),
   completed: z.boolean(),
   observations: z.string().optional(),
+  id: z.string().optional(),
 });
 
 export const maintenanceRecordSchema = z

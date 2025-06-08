@@ -383,6 +383,28 @@ class ActivityService {
     }
   }
 
+  async existsInMaintenanceRecord(
+    activityId: string,
+    userId: string
+  ): Promise<boolean> {
+    try {
+      if (!activityId?.trim()) {
+        throw new Error("El ID de la actividad es requerido");
+      }
+
+      return await this.repository.existsInMaintenanceRecord(
+        activityId,
+        userId
+      );
+    } catch (error) {
+      console.error(
+        "Error en ActivityService.existsInMaintenanceRecord:",
+        error
+      );
+      throw error;
+    }
+  }
+
   // ==================== MÉTODOS AVANZADOS ====================
 
   /**

@@ -225,6 +225,28 @@ class ActivityRepository {
     }
   }
 
+  async existsInMaintenanceRecord(
+    activityId: string,
+    userId: string
+  ): Promise<boolean> {
+    try {
+      const result = await this.db.query(
+        "SELECT activity_exists_in_maintenance($1, $2)",
+        [activityId, userId]
+      );
+
+      const res = result.rows[0].activity_exists_in_maintenance;
+      return res.exists;
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error("Error al verificar existencia de actividad:", err.stack);
+      } else {
+        console.error("Error al verificar existencia de actividad:", err);
+      }
+      throw err;
+    }
+  }
+
   /**
    * Buscar actividades por nombre
    */

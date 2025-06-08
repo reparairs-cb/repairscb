@@ -663,14 +663,6 @@ class MaintenanceActivityService {
     updateData: MaintenanceActivityUpdate,
     existingRecord: MaintenanceActivityBase
   ): Promise<void> {
-    // Validar observaciones si se están actualizando
-    if (updateData.observations && updateData.observations.length > 1000) {
-      throw new MaintenanceActivityError(
-        MaintenanceActivityErrorCodes.DATABASE_ERROR,
-        "Observations cannot exceed 1000 characters"
-      );
-    }
-
     // Si se está cambiando de mantenimiento o actividad, verificar duplicados
     if (updateData.maintenance_record_id || updateData.activity_id) {
       const targetMaintenanceId =

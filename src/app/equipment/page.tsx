@@ -174,7 +174,6 @@ export default function EquipmentPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/equipment/${id}`, {
@@ -209,7 +208,6 @@ export default function EquipmentPage() {
     reset();
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openEditModal = (item: EquipmentBase) => {
     setEditingItem(item);
     setValue("type", item.type);
@@ -248,29 +246,17 @@ export default function EquipmentPage() {
             key={item.id}
             title={item.type}
             subtitle={item.license_plate}
-            badges={[
-              { label: item.code, variant: "secondary" },
-              { label: "Activo", variant: "outline" },
-            ]}
+            badges={[{ label: item.code, variant: "secondary" }]}
             fields={[
               { label: "Tipo", value: item.type },
               { label: "Placa", value: item.license_plate },
               { label: "Código", value: item.code },
-              { label: "Creado", value: item.created_at.toLocaleDateString() },
-              ...(item.updated_at
-                ? [
-                    {
-                      label: "Actualizado",
-                      value: item.updated_at.toLocaleDateString(),
-                    },
-                  ]
-                : []),
             ]}
             onEdit={() => {
-              /* openEditModal(item); */
+              openEditModal(item);
             }}
             onDelete={() => {
-              /* handleDelete(item.id); */
+              handleDelete(item.id);
             }}
           />
         ))}

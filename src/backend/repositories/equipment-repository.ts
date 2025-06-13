@@ -477,6 +477,7 @@ class EquipmentRepository {
             last_mileage_record_date: eqplan.equipment.last_mileage_record_date
               ? new Date(eqplan.equipment.last_mileage_record_date)
               : undefined,
+            maintenance_plan_name: eqplan.equipment.maintenance_plan_name,
           },
           last_maintenance_type: eqplan.last_maintenance_type
             ? {

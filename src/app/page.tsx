@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   CheckCircle,
   ParkingMeter,
+  Route,
 } from "lucide-react";
 import {
   MultiEquipmentMaintenancePlan,
@@ -317,6 +318,13 @@ export default function Home() {
                             ? plan.equipment.last_mileage_value.toLocaleString() +
                               " km"
                             : "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Route className="w-4 h-4 text-gray-500" />
+                        <span className="font-medium">
+                          {plan.equipment.maintenance_plan_name ||
+                            "Plan indefinido"}
                         </span>
                       </div>
                     </div>

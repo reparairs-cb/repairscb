@@ -75,6 +75,7 @@ export interface EquipmentMileageRecord {
   avg_mileage: number;
   last_mileage_value?: number;
   last_mileage_record_date?: Date;
+  maintenance_plan_name?: string;
 }
 
 export interface MaintenanceTypePlan {

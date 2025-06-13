@@ -491,6 +491,14 @@ class MaintenanceRecordRepository {
             license_plate: data.equipment.license_plate,
             code: data.equipment.code,
             created_at: new Date(data.equipment.created_at || data.created_at),
+            maintenance_plan_id: data.equipment.maintenance_plan_id,
+            maintenance_plan: data.equipment.maintenance_plan
+              ? {
+                  id: data.equipment.maintenance_plan.id,
+                  name: data.equipment.maintenance_plan.name,
+                  description: data.equipment.maintenance_plan.description,
+                }
+              : undefined,
             updated_at: data.equipment.updated_at
               ? new Date(data.equipment.updated_at)
               : undefined,

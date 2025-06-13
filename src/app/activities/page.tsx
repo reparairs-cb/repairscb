@@ -75,6 +75,7 @@ export default function ActivityPage() {
   const watchedMaintenanceTypeIds = watch("maintenance_type_ids");
   const activityName = watch("name");
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getMaintenanceTypeName = (maintenanceTypeId: string): string => {
     const maintenanceType = flatMaintenanceTypes.find(
       (mt) => mt.id === maintenanceTypeId
@@ -82,6 +83,7 @@ export default function ActivityPage() {
     return maintenanceType?.type || "Tipo no encontrado";
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getMaintenanceTypePath = (maintenanceTypeId: string): string => {
     const maintenanceType = flatMaintenanceTypes.find(
       (mt) => mt.id === maintenanceTypeId

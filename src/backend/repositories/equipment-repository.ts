@@ -45,12 +45,13 @@ class EquipmentRepository {
       }
 
       const result = await this.db.query(
-        "SELECT create_equipment($1, $2, $3, $4)",
+        "SELECT create_equipment($1, $2, $3, $4, $5)",
         [
           equipment.type,
           equipment.license_plate,
           equipment.code,
           equipment.user_id,
+          equipment.maintenance_plan_id,
         ]
       );
 
@@ -94,6 +95,14 @@ class EquipmentRepository {
           ? new Date(equipmentData.updated_at)
           : undefined,
         user_id: equipmentData.user_id,
+        maintenance_plan: equipmentData.maintenance_plan
+          ? {
+              id: equipmentData.maintenance_plan.id,
+              name: equipmentData.maintenance_plan.name,
+              description: equipmentData.maintenance_plan.description,
+            }
+          : undefined,
+        maintenance_plan_id: equipmentData.maintenance_plan_id,
       };
     } catch (err) {
       if (err instanceof Error) {
@@ -132,6 +141,14 @@ class EquipmentRepository {
             ? new Date(equipment.updated_at)
             : undefined,
           user_id: equipment.user_id,
+          maintenance_plan_id: equipment.maintenance_plan_id,
+          maintenance_plan: equipment.maintenance_plan
+            ? {
+                id: equipment.maintenance_plan.id,
+                name: equipment.maintenance_plan.name,
+                description: equipment.maintenance_plan.description,
+              }
+            : undefined,
         })
       );
 
@@ -158,8 +175,14 @@ class EquipmentRepository {
   async update(equipment: EquipmentUpdate): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_equipment($1, $2, $3, $4)",
-        [equipment.id, equipment.type, equipment.license_plate, equipment.code]
+        "SELECT update_equipment($1, $2, $3, $4, $5)",
+        [
+          equipment.id,
+          equipment.type,
+          equipment.license_plate,
+          equipment.code,
+          equipment.maintenance_plan_id,
+        ]
       );
 
       const response = result.rows[0].update_equipment;
@@ -225,6 +248,14 @@ class EquipmentRepository {
           ? new Date(equipment.updated_at)
           : undefined,
         user_id: equipment.user_id,
+        maintenance_plan_id: equipment.maintenance_plan_id,
+        maintenance_plan: equipment.maintenance_plan
+          ? {
+              id: equipment.maintenance_plan.id,
+              name: equipment.maintenance_plan.name,
+              description: equipment.maintenance_plan.description,
+            }
+          : undefined,
       }));
     } catch (err) {
       if (err instanceof Error) {
@@ -265,6 +296,14 @@ class EquipmentRepository {
           ? new Date(equipmentData.updated_at)
           : undefined,
         user_id: equipmentData.user_id,
+        maintenance_plan_id: equipmentData.maintenance_plan_id,
+        maintenance_plan: equipmentData.maintenance_plan
+          ? {
+              id: equipmentData.maintenance_plan.id,
+              name: equipmentData.maintenance_plan.name,
+              description: equipmentData.maintenance_plan.description,
+            }
+          : undefined,
       };
     } catch (err) {
       if (err instanceof Error) {
@@ -305,6 +344,14 @@ class EquipmentRepository {
           ? new Date(equipmentData.updated_at)
           : undefined,
         user_id: equipmentData.user_id,
+        maintenance_plan_id: equipmentData.maintenance_plan_id,
+        maintenance_plan: equipmentData.maintenance_plan
+          ? {
+              id: equipmentData.maintenance_plan.id,
+              name: equipmentData.maintenance_plan.name,
+              description: equipmentData.maintenance_plan.description,
+            }
+          : undefined,
       };
     } catch (err) {
       if (err instanceof Error) {
@@ -378,6 +425,26 @@ class EquipmentRepository {
         console.error("Error al obtener equipments con registros:", err.stack);
       } else {
         console.error("Error al obtener equipments con registros:", err);
+      }
+      throw err;
+    }
+  }
+
+  async hasRecords(equipment_id: string): Promise<boolean> {
+    try {
+      const result = await this.db.query("SELECT equipment_has_records($1)", [
+        equipment_id,
+      ]);
+
+      return result.rows[0].has_records;
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(
+          "Error al verificar si el equipo tiene registros:",
+          err.stack
+        );
+      } else {
+        console.error("Error al verificar si el equipo tiene registros:", err);
       }
       throw err;
     }

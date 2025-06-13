@@ -7,6 +7,7 @@ import {
   Wrench,
   AlertTriangle,
   CheckCircle,
+  ParkingMeter,
 } from "lucide-react";
 import {
   MultiEquipmentMaintenancePlan,
@@ -302,11 +303,22 @@ export default function Home() {
 
                   {/* Información principal */}
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-gray-500" />
-                      <span className="font-medium">
-                        {plan.equipment.license_plate}
-                      </span>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-gray-500" />
+                        <span className="font-medium">
+                          {plan.equipment.license_plate}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <ParkingMeter className="w-4 h-4 text-gray-500" />
+                        <span className="font-medium">
+                          {plan.equipment.last_mileage_value
+                            ? plan.equipment.last_mileage_value.toLocaleString() +
+                              " km"
+                            : "N/A"}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

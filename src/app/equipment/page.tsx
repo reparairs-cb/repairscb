@@ -16,12 +16,28 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useSession } from "next-auth/react";
 import { toastVariables } from "@/components/ToastVariables";
+import {
+  MaintenancePlanBase,
+  MultiMaintenancePlan,
+} from "@/types/maintenance-plan";
+import {
+  Select,
+  SelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function EquipmentPage() {
   const { data: session } = useSession();
   const [equipment, setEquipment] = useState<EquipmentBase[]>([]);
+  const [plans, setPlans] = useState<MaintenancePlanBase[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EquipmentBase | null>(null);
+  const [restrictions, setRestrictions] = useState<{
+    [key: string]: boolean;
+  }>({});
+  const [loadingRestrictions, setLoadingRestrictions] = useState(false);
   const [noise, setNoise] = useState<NoiseType | null>({
     type: "loading",
     styleType: "page",
@@ -46,12 +62,6 @@ export default function EquipmentPage() {
   useEffect(() => {
     // Fetch equipment from API
     const fetchEquipment = async () => {
-      setNoise({
-        type: "loading",
-        styleType: "page",
-        message: "Cargando equipos...",
-      });
-
       try {
         const res = await fetch("/api/equipments");
 
@@ -68,18 +78,55 @@ export default function EquipmentPage() {
             updated_at: item.updated_at ? new Date(item.updated_at) : undefined,
           }))
         );
-        setNoise(null);
       } catch (error) {
         console.error("Error fetching equipment:", error);
+        throw new Error("Error al cargar los equipos.");
+      }
+    };
+
+    const fetchPlans = async () => {
+      try {
+        const res = await fetch("/api/maintenance-plan?limit=0");
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch maintenance plans");
+        }
+
+        const data = (await res.json()).data as MultiMaintenancePlan;
+        console.log("Fetched maintenance plans:", data);
+        setPlans(data.data);
+      } catch (error) {
+        console.error("Error fetching maintenance plans:", error);
+        throw new Error("Error al cargar los planes de mantenimiento.");
+      }
+    };
+
+    const fetchData = async () => {
+      try {
+        setNoise({
+          type: "loading",
+          styleType: "page",
+          message: "Cargando equipos y planes de mantenimiento...",
+        });
+        await fetchEquipment();
+        setNoise({
+          type: "loading",
+          styleType: "page",
+          message: "Cargando planes de mantenimiento...",
+        });
+        await fetchPlans();
+        setNoise(null);
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
         setNoise({
           type: "error",
           styleType: "page",
-          message: "Error al cargar los equipos.",
+          message: "Error al cargar los datos. Por favor, inténtalo de nuevo.",
         });
       }
     };
 
-    fetchEquipment();
+    fetchData();
   }, []);
 
   if (!session || !session.user?.id) {
@@ -120,6 +167,13 @@ export default function EquipmentPage() {
         id: newEquipmentData.id,
         created_at: new Date(newEquipmentData.created_at),
         user_id: session.user.id,
+        maintenance_plan_id: data.maintenance_plan_id,
+        maintenance_plan: {
+          id: data.maintenance_plan_id,
+          name:
+            plans.find((plan) => plan.id === data.maintenance_plan_id)?.name ||
+            "Plan indefinido",
+        },
       };
 
       setNoise(null);
@@ -160,7 +214,17 @@ export default function EquipmentPage() {
 
       const updatedEquipment = equipment.map((item) =>
         item.id === editingItem.id
-          ? { ...item, ...data, updated_at: new Date() }
+          ? {
+              ...item,
+              ...data,
+              updated_at: new Date(),
+              maintenance_plan: {
+                id: data.maintenance_plan_id,
+                name:
+                  plans.find((plan) => plan.id === data.maintenance_plan_id)
+                    ?.name || "Plan indefinido",
+              },
+            }
           : item
       );
       setEquipment(updatedEquipment);
@@ -176,18 +240,38 @@ export default function EquipmentPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/equipment/${id}`, {
+      const res = await fetch("/api/equipments", {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to delete equipment");
+        const err = await res.json();
+        console.error("Error deleting equipment:", err);
+
+        throw new Error(
+          err.message ===
+          "No se puede eliminar el equipo porque tiene registros asociados."
+            ? err.message
+            : "Failed to delete equipment"
+        );
       }
 
       setEquipment(equipment.filter((item) => item.id !== id));
       toastVariables.success("Equipo eliminado exitosamente.");
     } catch (error) {
       console.error("Error deleting equipment:", error);
+      if (error instanceof Error) {
+        toastVariables.error(
+          error.message ===
+            "No se puede eliminar el equipo porque tiene registros asociados."
+            ? error.message
+            : "Error al eliminar el equipo."
+        );
+      }
       toastVariables.error("Error al eliminar el equipo.");
     }
   };
@@ -198,6 +282,7 @@ export default function EquipmentPage() {
       type: "",
       license_plate: "",
       code: "",
+      maintenance_plan_id: "",
     });
     setIsModalOpen(true);
   };
@@ -208,11 +293,40 @@ export default function EquipmentPage() {
     reset();
   };
 
+  const handleRestrictionCheck = async (equipmentId: string) => {
+    setLoadingRestrictions(true);
+    try {
+      const res = await fetch("/api/equipments/has-records", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ equipment_id: equipmentId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error("Error fetching restrictions:", err);
+        throw new Error("Failed to fetch restrictions");
+      }
+      const data = (await res.json()).data;
+      setRestrictions((prev) => ({
+        ...prev,
+        [equipmentId]: data,
+      }));
+    } catch (error) {
+      console.error("Error fetching restrictions:", error);
+    } finally {
+      setLoadingRestrictions(false);
+    }
+  };
+
   const openEditModal = (item: EquipmentBase) => {
+    handleRestrictionCheck(item.id);
     setEditingItem(item);
     setValue("type", item.type);
     setValue("license_plate", item.license_plate);
     setValue("code", item.code);
+    setValue("maintenance_plan_id", item.maintenance_plan_id);
     setIsModalOpen(true);
   };
 
@@ -251,6 +365,10 @@ export default function EquipmentPage() {
               { label: "Tipo", value: item.type },
               { label: "Placa", value: item.license_plate },
               { label: "Código", value: item.code },
+              {
+                label: "Plan de Mantenimiento",
+                value: item.maintenance_plan?.name || "Plan indefinido",
+              },
             ]}
             onEdit={() => {
               openEditModal(item);
@@ -338,6 +456,61 @@ export default function EquipmentPage() {
                 )}
               </div>
 
+              <div className="mb-4 flex flex-col gap-1">
+                <Label htmlFor="maintenance_plan_id">
+                  Plan de Mantenimiento
+                </Label>
+                <Controller
+                  name="maintenance_plan_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value}
+                      disabled={
+                        loadingRestrictions || restrictions["has_records"]
+                      }
+                      defaultValue={editingItem?.maintenance_plan_id || ""}
+                      onValueChange={(value) => {
+                        if (!editingItem || !restrictions["has_records"]) {
+                          field.onChange(value);
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un plan" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[1000]">
+                        {plans.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.maintenance_plan_id && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.maintenance_plan_id.message}
+                  </p>
+                )}
+
+                <div className="mt-2">
+                  {editingItem && loadingRestrictions && (
+                    <p className="text-yellow-500 text-sm">
+                      Verificando restricciones de actualización...
+                    </p>
+                  )}
+                  {editingItem && restrictions["has_records"] && (
+                    <p className="text-red-500 text-sm">
+                      No puedes modificar el plan de mantenimiento porque ya
+                      está asociado a un registro de kilometraje y/o
+                      mantenimiento.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button
                   type="button"
@@ -347,7 +520,11 @@ export default function EquipmentPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" className="flex-1">
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={(editingItem && loadingRestrictions) || false}
+                >
                   {editingItem ? "Actualizar Equipo" : "Crear Equipo"}
                 </Button>
               </div>

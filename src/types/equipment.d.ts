@@ -6,6 +6,12 @@ export interface EquipmentBase extends BaseModel {
   type: string;
   license_plate: string;
   code: string;
+  maintenance_plan_id: string;
+  maintenance_plan?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
 }
 
 export type EquipmentDB = EquipmentBase;
@@ -20,6 +26,7 @@ export interface EquipmentUpdate {
   type?: string;
   license_plate?: string;
   code?: string;
+  maintenance_plan_id?: string;
 }
 
 export interface MultiEquipment {
@@ -70,7 +77,7 @@ export interface EquipmentMileageRecord {
   last_mileage_record_date?: Date;
 }
 
-export interface MaintenaceTypePlan {
+export interface MaintenanceTypePlan {
   id: string;
   type: string;
   path: string;
@@ -78,8 +85,8 @@ export interface MaintenaceTypePlan {
 
 export interface EquipmentMaintenancePlan {
   equipment: EquipmentMileageRecord;
-  last_maintenance_type?: MaintenaceTypePlan;
-  next_maintenance_type?: MaintenaceTypePlan;
+  last_maintenance_type?: MaintenanceTypePlan;
+  next_maintenance_type?: MaintenanceTypePlan;
   remaining_days?: number;
   remaining_mileage?: number;
 }

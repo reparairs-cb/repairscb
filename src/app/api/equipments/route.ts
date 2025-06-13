@@ -91,11 +91,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Crear el equipo
+    if (!body.maintenance_plan_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "ID del plan de mantenimiento es requerido",
+        },
+        { status: 400 }
+      );
+    }
+
     const result = await equipmentService.create({
       type: body.type,
       license_plate: body.license_plate,
       code: body.code,
       user_id: session.user.id,
+      maintenance_plan_id: body.maintenance_plan_id,
     });
 
     /* const { type, license_plate, code } = body;
@@ -193,6 +205,7 @@ export async function PUT(request: NextRequest) {
       type: body.type || null,
       license_plate: body.license_plate || null,
       code: body.code || null,
+      maintenance_plan_id: body.maintenance_plan_id || null,
     });
 
     return NextResponse.json({

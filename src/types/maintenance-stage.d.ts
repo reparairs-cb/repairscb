@@ -1,24 +1,36 @@
 import { BaseModel } from "./base-model";
+import { MaintenanceType } from "./maintenance-plan";
 
 export interface MaintenanceStageBase extends BaseModel {
   maintenance_type_id: string;
+  maintenance_plan_id: string;
   stage_index: number;
-  value: number;
+  kilometers: number;
+  days: number;
+  maintenance_type?: MaintenanceType;
+  maintenance_plan?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
 }
 
 export interface MaintenanceStageCreate {
   maintenance_type_id: string;
+  maintenance_plan_id: string;
   stage_index: number;
-  value: number;
+  kilometers: number;
+  days: number;
   user_id: string;
 }
 
 export interface MaintenanceStageUpdate {
   id: string;
   maintenance_type_id?: string;
+  maintenance_plan_id?: string;
   stage_index?: number;
-  value?: number;
-  user_id: string;
+  kilometers?: number;
+  days?: number;
 }
 
 export interface MultiMaintenanceStage {
@@ -26,31 +38,7 @@ export interface MultiMaintenanceStage {
   limit: number;
   offset: number;
   pages: number;
+  maintenance_type_id?: string;
+  maintenance_plan_id?: string;
   data: MaintenanceStageBase[];
-}
-
-export interface MaintenanceStagesByTypeResponse {
-  maintenance_type_id: string;
-  data: MaintenanceStageBase[];
-}
-
-export interface NextStageIndexResponse {
-  maintenance_type_id: string;
-  next_index: number;
-}
-
-export interface StageIndexExistsResponse {
-  maintenance_type_id: string;
-  stage_index: number;
-  exists: boolean;
-  existing_id?: string;
-}
-
-export interface MaintenanceStageStatistics {
-  maintenance_type_id: string;
-  total_stages: number;
-  min_value: number;
-  max_value: number;
-  avg_value: number;
-  total_value: number;
 }

@@ -87,6 +87,12 @@ class EquipmentService {
    */
   async delete(id: string): Promise<{ id: string } | null> {
     try {
+      const has_records = await this.repository.hasRecords(id);
+      if (has_records) {
+        throw new Error(
+          "No se puede eliminar el equipo porque tiene registros asociados."
+        );
+      }
       return await this.repository.delete({ id });
     } catch (error) {
       console.error("Error al eliminar el equipo:", error);
@@ -115,6 +121,22 @@ class EquipmentService {
     }
   }
 
+  async hasRecords(equipment_id: string): Promise<boolean> {
+    try {
+      return await this.repository.hasRecords(equipment_id);
+    } catch (error) {
+      console.error("Error al obtener registros de equipos:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener el plan de mantenimiento de un usuario
+   * @param userId - ID del usuario
+   * @param limit - Límite de resultados
+   * @param offset - Desplazamiento para la paginación
+   * @returns Plan de mantenimiento del usuario
+   */
   async getMaintenancePlan(
     userId: string,
     limit: number = 10,

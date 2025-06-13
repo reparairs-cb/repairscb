@@ -49,6 +49,24 @@ interface SelectedActivity {
   observations?: string;
 }
 
+const getMaintenanceTypesById = (
+  id: string,
+  maintenanceTypes: MaintenanceTypeWithChildren[]
+): MaintenanceTypeBase | undefined => {
+  for (const type of maintenanceTypes) {
+    if (type.id === id) {
+      return type;
+    }
+    if (type.children) {
+      const found = getMaintenanceTypesById(id, type.children);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return undefined;
+};
+
 export default function MaintenanceRecordsPage() {
   const { data: session } = useSession();
   const [maintenanceRecords, setMaintenanceRecords] = useState<
@@ -56,7 +74,7 @@ export default function MaintenanceRecordsPage() {
   >([]);
   const [equipments, setEquipments] = useState<EquipmentBase[]>([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState<
-    MaintenanceTypeBase[]
+    MaintenanceTypeWithChildren[]
   >([]);
   const [activities, setActivities] = useState<ActivityBase[]>([]);
   const [spareParts, setSpareParts] = useState<SparePartBase[]>([]);
@@ -404,9 +422,10 @@ export default function MaintenanceRecordsPage() {
           equipment: equipments.find(
             (eq) => eq.id === data.equipment_id
           ) as EquipmentBase,
-          maintenance_type: maintenanceTypes.find(
-            (mt) => mt.id === data.maintenance_type_id
-          ) as MaintenanceTypeBase,
+          maintenance_type: getMaintenanceTypesById(
+            data.maintenance_type_id,
+            maintenanceTypes
+          ),
           mileage_record_id: newRecord.mileage_record_id,
           mileage_info: {
             kilometers: data.mileage,
@@ -472,6 +491,7 @@ export default function MaintenanceRecordsPage() {
 
       const updatePayload = {
         ...data,
+        mileage_record: selectedMileageRecord,
         id: editingItem.id,
         spare_parts: data.spare_parts.map((sp) => ({
           id: sp.id,
@@ -485,6 +505,22 @@ export default function MaintenanceRecordsPage() {
           completed: act.completed,
           observations: act.observations || "",
         })),
+        original_spare_parts: editingItem.spare_parts
+          ? editingItem.spare_parts.map((sp) => ({
+              id: sp.id,
+              spare_part_id: sp.spare_part_id,
+              quantity: sp.quantity,
+              unit_price: sp.unit_price,
+            }))
+          : [],
+        original_activities: editingItem.activities
+          ? editingItem.activities.map((act) => ({
+              id: act.id,
+              activity_id: act.activity_id,
+              completed: act.completed,
+              observations: act.observations || "",
+            }))
+          : [],
       };
 
       const res = await fetch(`/api/maintenance-records`, {
@@ -630,7 +666,15 @@ export default function MaintenanceRecordsPage() {
         observations: act.observations || "",
       })) || []
     );
-    setSelectedEquipmentId(item.equipment_id);
+    setSelectedMileageRecord(
+      mileageRecords.find(
+        (record) =>
+          record.id === item.mileage_info?.id ||
+          (record.equipment_id === item.equipment_id &&
+            record.record_date.toDateString() ===
+              item.start_datetime.toDateString())
+      ) || null
+    );
     setIsModalOpen(true);
   };
 
@@ -930,37 +974,46 @@ export default function MaintenanceRecordsPage() {
                   render={() => (
                     <div className="space-y-3">
                       {activitiesFields.map((activity, index) => (
-                        <div key={index} className="border rounded-lg p-4 mb-3">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div>
-                              <Label>Actividad</Label>
-                              <Controller
-                                name={`activities.${index}.activity_id`}
-                                control={control}
-                                render={({ field }) => (
-                                  <Select
-                                    onValueChange={(value) => {
-                                      const selectedActivity = activities.find(
-                                        (a) => a.id === value
-                                      );
-                                      if (!selectedActivity) return;
-                                      field.onChange(value);
-                                    }}
-                                    value={field.value}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Seleccionar actividad" />
-                                    </SelectTrigger>
-                                    <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                                      {activities.map((act) => (
-                                        <SelectItem key={act.id} value={act.id}>
-                                          {act.name}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
+                        <div
+                          key={index}
+                          className="border rounded-lg p-4 mb-3 relative"
+                        >
+                          <div className="grid grid-cols-1 gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <Label>Actividad</Label>
+                                <Controller
+                                  name={`activities.${index}.activity_id`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select
+                                      onValueChange={(value) => {
+                                        const selectedActivity =
+                                          activities.find(
+                                            (a) => a.id === value
+                                          );
+                                        if (!selectedActivity) return;
+                                        field.onChange(value);
+                                      }}
+                                      value={field.value}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar actividad" />
+                                      </SelectTrigger>
+                                      <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
+                                        {activities.map((act) => (
+                                          <SelectItem
+                                            key={act.id}
+                                            value={act.id}
+                                          >
+                                            {act.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </div>
                             </div>
 
                             {/* <div className="flex items-center space-x-2">
@@ -979,13 +1032,15 @@ export default function MaintenanceRecordsPage() {
                               <Label>Completada</Label>
                             </div> */}
 
-                            <div className="flex space-x-2">
+                            <div className="flex flex-col gap-2 w-full">
+                              <Label className="flex-1">Observaciones</Label>
                               <Controller
                                 name={`activities.${index}.observations`}
                                 control={control}
                                 render={({ field }) => (
-                                  <Input
+                                  <Textarea
                                     placeholder="Observaciones"
+                                    className="max-h-[20vh] md:max-h-[10vh]"
                                     value={field.value || ""}
                                     onChange={(e) =>
                                       field.onChange(e.target.value)
@@ -993,16 +1048,17 @@ export default function MaintenanceRecordsPage() {
                                   />
                                 )}
                               />
-
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => rmActivity(index)}
-                              >
-                                Eliminar
-                              </Button>
                             </div>
+                          </div>
+                          <div className="absolute -top-1 -right-1">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => rmActivity(index)}
+                            >
+                              Eliminar
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -1012,7 +1068,7 @@ export default function MaintenanceRecordsPage() {
               </div>
 
               {/* Spare Parts Section */}
-              <div>
+              <div className="w-full md:w-[60%]">
                 <div className="flex items-center justify-between mb-3">
                   <Label className="text-base font-semibold">Repuestos</Label>
                   <Button
@@ -1032,8 +1088,11 @@ export default function MaintenanceRecordsPage() {
                   render={() => (
                     <div className="space-y-3">
                       {sparePartsFields.map((sparePart, index) => (
-                        <div key={index} className="border rounded-lg p-4 mb-3">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div
+                          key={index}
+                          className="border rounded-lg p-4 mb-3 relative"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                               <Label>Repuesto</Label>
                               <Controller
@@ -1093,10 +1152,10 @@ export default function MaintenanceRecordsPage() {
                               />
                             </div>
 
-                            <div className="flex items-end">
+                            <div className="flex items-end absolute -top-1 -right-1">
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="destructive"
                                 size="sm"
                                 onClick={() => rmSparePart(index)}
                               >

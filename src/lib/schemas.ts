@@ -4,12 +4,19 @@ export const equipmentSchema = z.object({
   type: z.string().min(1, "Type is required"),
   license_plate: z.string().min(1, "License plate is required"),
   code: z.string().min(1, "Code is required"),
+  maintenance_plan_id: z.string().min(1, "Maintenance plan is required"),
 });
 
 export const activitySchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "El nombre es requerido"),
   description: z.string().optional(),
-  maintenance_type_id: z.string().min(1, "Maintenance type is required"),
+  maintenance_type_ids: z
+    .array(
+      z.object({
+        id: z.string().min(1, "ID is required"),
+      })
+    )
+    .min(1, "Al menos un tipo de mantenimiento es requerido"),
 });
 
 export const maintenanceTypeSchema = z.object({

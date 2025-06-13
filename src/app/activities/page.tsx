@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DataCard } from "@/components/DataCard";
-import { Plus } from "lucide-react";
-import type { ActivityFormData } from "@/lib/schemas";
-import type { ActivityBase, MultiActivity } from "@/types/activity";
+import { Plus, Trash2 } from "lucide-react";
+import { ActivityFormData } from "@/lib/schemas";
+import type {
+  ActivityBase,
+  MaintenanceType,
+  MultiActivity,
+} from "@/types/activity";
 import type {
   MaintenanceTypeBase,
   MaintenanceTypeWithChildren,
 } from "@/types/maintenance-type";
 import { activitySchema } from "@/lib/schemas";
 import { Modal } from "@/components/Modal";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { NoiseType } from "@/types/noise";
 import { Noise } from "@/components/Noise";
@@ -50,15 +54,26 @@ export default function ActivityPage() {
     handleSubmit,
     setValue,
     reset,
+    watch,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<ActivityFormData>({
     resolver: zodResolver(activitySchema),
     defaultValues: {
       name: "",
       description: "",
-      maintenance_type_id: "",
+      maintenance_type_ids: [],
     },
   });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "maintenance_type_ids",
+  });
+
+  const watchedMaintenanceTypeIds = watch("maintenance_type_ids");
+  const activityName = watch("name");
 
   const getMaintenanceTypeName = (maintenanceTypeId: string): string => {
     const maintenanceType = flatMaintenanceTypes.find(
@@ -78,6 +93,20 @@ export default function ActivityPage() {
     }
 
     return maintenanceType.type;
+  };
+
+  const getMaintenanceTypesByIds = (ids: string[]): MaintenanceType[] => {
+    return ids
+      .map((id) => flatMaintenanceTypes.find((mt) => mt.id === id))
+      .map((mt) => {
+        if (!mt) return undefined;
+        return {
+          id: mt.id,
+          type: mt.type,
+          level: mt.level,
+        };
+      })
+      .filter((mt): mt is MaintenanceType => mt !== undefined);
   };
 
   useEffect(() => {
@@ -187,6 +216,19 @@ export default function ActivityPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (activityName) {
+      if (activities.find((item) => item.name === activityName)) {
+        setError("name", {
+          type: "manual",
+          message: "Ya existe una actividad con este nombre.",
+        });
+      } else {
+        clearErrors("name");
+      }
+    }
+  }, [activityName]);
+
   if (!session || !session.user?.id) {
     return null;
   }
@@ -199,16 +241,23 @@ export default function ActivityPage() {
     });
 
     try {
+      const activityData = {
+        name: data.name,
+        description: data.description || "",
+        maintenance_type_ids: data.maintenance_type_ids.map((mt) => mt.id),
+      };
+
       const res = await fetch("/api/activities", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(activityData),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create activity");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to create activity");
       }
 
       const newActivityData = (await res.json()).data as {
@@ -219,18 +268,24 @@ export default function ActivityPage() {
       console.log("New activity created:", newActivityData);
 
       const newActivity: ActivityBase = {
-        ...data,
         id: newActivityData.id,
+        name: data.name,
+        description: data.description,
+        maintenance_types: getMaintenanceTypesByIds(
+          data.maintenance_type_ids.map((mt) => mt.id)
+        ),
         created_at: new Date(newActivityData.created_at),
         user_id: session.user.id,
       };
-
       setActivities((prev) => [...prev, newActivity]);
+
       setNoise(null);
       toastVariables.success("Actividad creada exitosamente.");
     } catch (error) {
       console.error("Error creating activity:", error);
-      toastVariables.error("Error al crear la actividad.");
+      toastVariables.error(
+        error instanceof Error ? error.message : "Error al crear la actividad."
+      );
       setNoise(null);
     }
   };
@@ -245,10 +300,10 @@ export default function ActivityPage() {
     });
 
     const updatedData = {
-      ...data,
       id: editingItem.id,
-      created_at: editingItem.created_at,
-      user_id: editingItem.user_id,
+      name: data.name,
+      description: data.description,
+      maintenance_type_ids: data.maintenance_type_ids.map((mt) => mt.id),
     };
 
     try {
@@ -261,12 +316,21 @@ export default function ActivityPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to update activity");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update activity");
       }
 
       const updatedActivities = activities.map((item) =>
         item.id === editingItem.id
-          ? { ...item, ...data, updated_at: new Date() }
+          ? {
+              ...item,
+              name: data.name,
+              description: data.description,
+              maintenance_types: getMaintenanceTypesByIds(
+                data.maintenance_type_ids.map((mt) => mt.id)
+              ),
+              updated_at: new Date(),
+            }
           : item
       );
 
@@ -276,27 +340,39 @@ export default function ActivityPage() {
       toastVariables.success("Actividad actualizada exitosamente.");
     } catch (error) {
       console.error("Error updating activity:", error);
-      toastVariables.error("Error al actualizar la actividad.");
+      toastVariables.error(
+        error instanceof Error
+          ? error.message
+          : "Error al actualizar la actividad."
+      );
       setNoise(null);
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/activities/${id}`, {
+      const res = await fetch(`/api/activities`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
       });
 
       if (!res.ok) {
-        throw new Error("Failed to delete activity");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to delete activity");
       }
 
       setActivities(activities.filter((item) => item.id !== id));
       toastVariables.success("Actividad eliminada exitosamente.");
     } catch (error) {
       console.error("Error deleting activity:", error);
-      toastVariables.error("Error al eliminar la actividad.");
+      toastVariables.error(
+        error instanceof Error
+          ? error.message
+          : "Error al eliminar la actividad."
+      );
     }
   };
 
@@ -305,7 +381,7 @@ export default function ActivityPage() {
     reset({
       name: "",
       description: "",
-      maintenance_type_id: "",
+      maintenance_type_ids: [],
     });
     setIsModalOpen(true);
   };
@@ -349,13 +425,18 @@ export default function ActivityPage() {
       return false;
     }
   };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const openEditModal = (item: ActivityBase) => {
     handleRestrictionCheck(item.id);
     setEditingItem(item);
     setValue("name", item.name);
     setValue("description", item.description || "");
-    setValue("maintenance_type_id", item.maintenance_type_id);
+    setValue(
+      "maintenance_type_ids",
+      item.maintenance_types.map((mt) => ({
+        id: mt.id,
+      }))
+    );
     setIsModalOpen(true);
   };
 
@@ -366,6 +447,26 @@ export default function ActivityPage() {
       await handleCreate(data);
     }
     setIsModalOpen(false);
+  };
+
+  const addMaintenanceType = () => {
+    append({
+      id: "",
+    });
+  };
+
+  const removeMaintenanceType = (index: number) => {
+    remove(index);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const getAvailableMaintenanceTypes = (currentIndex: number) => {
+    const selectedIds = watchedMaintenanceTypeIds.filter(
+      (mt, index) => index !== currentIndex && mt.id !== ""
+    );
+    return flatMaintenanceTypes.filter(
+      (mt) => !selectedIds.find((s) => s.id === mt.id)
+    );
   };
 
   if (noise && noise.styleType === "page") {
@@ -388,18 +489,22 @@ export default function ActivityPage() {
           <DataCard
             key={item.id}
             title={item.name}
-            subtitle={getMaintenanceTypeName(item.maintenance_type_id)}
-            badges={[
-              {
-                label: getMaintenanceTypeName(item.maintenance_type_id),
-                variant: "secondary",
-              },
-            ]}
+            subtitle={
+              item.maintenance_types.length > 0
+                ? `${item.maintenance_types.length} tipo${
+                    item.maintenance_types.length > 1 ? "s" : ""
+                  } de mantenimiento`
+                : "Sin tipos"
+            }
+            badges={item.maintenance_types.map((mt) => ({
+              label: mt.type,
+              variant: "secondary" as const,
+            }))}
             fields={[
               { label: "Nombre", value: item.name },
               {
-                label: "Tipo de Mantenimiento",
-                value: getMaintenanceTypePath(item.maintenance_type_id),
+                label: "Descripción",
+                value: item.description || "No disponible",
               },
             ]}
             onEdit={() => {
@@ -429,7 +534,7 @@ export default function ActivityPage() {
 
       {isModalOpen && (
         <Modal onClose={handleCancel}>
-          <div className="p-6">
+          <div className="p-6 max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
               {editingItem ? "Editar Actividad" : "Crear Actividad"}
             </h2>
@@ -455,45 +560,85 @@ export default function ActivityPage() {
               </div>
 
               <div className="mb-4">
-                <Label htmlFor="maintenance_type_id">
-                  Tipo de Mantenimiento
-                </Label>
-                <Controller
-                  name="maintenance_type_id"
-                  control={control}
-                  render={({ field }) => (
-                    <MaintenanceTypeSelect
-                      maintenanceTypes={maintenanceTypes}
-                      selectedValue={field.value}
-                      onChange={(value) => {
-                        if (
-                          !editingItem &&
-                          !updateRestrictions["maintenance_type"]
-                        ) {
-                          field.onChange(value);
-                        }
-                      }}
-                    />
-                  )}
-                />
-                {errors.maintenance_type_id && (
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Tipos de Mantenimiento</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addMaintenanceType}
+                    disabled={fields.length >= 10}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Agregar Tipo
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Controller
+                          name={`maintenance_type_ids.${index}.id`}
+                          control={control}
+                          render={({ field: selectField }) => (
+                            <MaintenanceTypeSelect
+                              maintenanceTypes={maintenanceTypes}
+                              selectedValue={selectField.value}
+                              onChange={(value) => {
+                                if (
+                                  !editingItem ||
+                                  !updateRestrictions["maintenance_type"]
+                                ) {
+                                  selectField.onChange(value);
+                                }
+                              }}
+                            />
+                          )}
+                        />
+                      </div>
+                      {fields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeMaintenanceType(index)}
+                          disabled={
+                            (editingItem &&
+                              updateRestrictions["maintenance_type"]) ||
+                            false
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {errors.maintenance_type_ids && (
                   <p className="text-red-500 text-sm mt-1">
-                    {errors.maintenance_type_id.message}
+                    {errors.maintenance_type_ids.message}
                   </p>
                 )}
-                <div className="mt-2 max-w-sm">
+
+                <div className="mt-2">
                   {editingItem && loadingRestrictions && (
-                    <p className="text-yellow-500 text-sm mt-1">
+                    <p className="text-yellow-500 text-sm">
                       Verificando restricciones de actualización...
                     </p>
                   )}
                   {editingItem && updateRestrictions["maintenance_type"] && (
-                    <p className="text-red-500 text-sm mt-1">
-                      No puedes actualizar el tipo de mantenimiento de esta
+                    <p className="text-red-500 text-sm">
+                      No puedes modificar los tipos de mantenimiento de esta
                       actividad porque ya está asociada a un registro de
                       mantenimiento.
                     </p>
                   )}
+                  <p className="text-gray-500 text-xs mt-1">
+                    Puedes agregar hasta 10 tipos de mantenimiento por
+                    actividad.
+                  </p>
                 </div>
               </div>
 
@@ -557,14 +702,28 @@ export default function ActivityPage() {
                   <span className="text-sm font-semibold">Descripción</span>
                   <span>{details.description || "No disponible"}</span>
                 </div>
+
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold">
-                    Tipo de Mantenimiento
+                    Tipos de Mantenimiento ({details.maintenance_types.length})
                   </span>
-                  <span>
-                    {getMaintenanceTypeName(details.maintenance_type_id)}
-                  </span>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {details.maintenance_types.map((mt) => (
+                      <span
+                        key={mt.id}
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                      >
+                        {mt.path || mt.type}
+                      </span>
+                    ))}
+                    {details.maintenance_types.length === 0 && (
+                      <span className="text-gray-500 text-sm">
+                        No hay tipos asignados
+                      </span>
+                    )}
+                  </div>
                 </div>
+
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold">
                     Fecha de Creación

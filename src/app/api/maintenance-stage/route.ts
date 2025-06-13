@@ -30,9 +30,10 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get("offset") || "0");
 
     const result: MultiMaintenanceStage = await maintenanceStageService.getAll(
+      session.user.id,
+      undefined,
       limit,
-      offset,
-      session.user.id
+      offset
     );
 
     return NextResponse.json({
@@ -74,7 +75,9 @@ export async function POST(request: Request) {
     if (
       !data.maintenance_type_id ||
       data.stage_index === undefined ||
-      data.value === undefined ||
+      data.kilometers === undefined ||
+      data.days === undefined ||
+      !data.maintenance_plan_id ||
       !data.stages ||
       !Array.isArray(data.stages)
     ) {
@@ -101,14 +104,19 @@ export async function POST(request: Request) {
     stgs.push({
       id: result.id,
       maintenance_type_id: data.maintenance_type_id,
+      maintenance_plan_id: data.maintenance_plan_id,
       stage_index: data.stage_index,
-      value: data.value,
-      user_id: data.user_id,
-      created_at: result.created_at,
-      updated_at: result.created_at,
+      kilometers: data.kilometers,
+      days: data.days,
+      created_at: new Date(),
+      user_id: session.user.id,
     });
 
-    const sortedStages = stgs.sort((a, b) => a.value - b.value);
+    const sortedStages = stgs.sort((a, b) =>
+      a.kilometers - b.kilometers === 0
+        ? a.days - b.days
+        : a.kilometers - b.kilometers
+    );
 
     let reorderNeeded = false;
     for (let i = 0; i < sortedStages.length - 1; i++) {
@@ -125,7 +133,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        stage_index: sortedStages.find((s) => s.id === result.id)?.stage_index,
+        sorted_stages: sortedStages,
+      },
     });
   } catch (error) {
     console.error("Error en POST /api/maintenance-stage:", error);
@@ -162,7 +174,8 @@ export async function PUT(request: Request) {
     if (
       !data.maintenance_type_id ||
       data.stage_index === undefined ||
-      data.value === undefined ||
+      data.kilometers === undefined ||
+      data.days === undefined ||
       !data.stages ||
       !Array.isArray(data.stages)
     ) {
@@ -172,14 +185,17 @@ export async function PUT(request: Request) {
       );
     }
 
-    data.user_id = session.user.id;
-    const result = await maintenanceStageService.update(data);
+    const result = await maintenanceStageService.update(data, session.user.id);
 
     const stgs = data.stages.map((stage) => ({
       ...stage,
     }));
 
-    const sortedStages = stgs.sort((a, b) => a.value - b.value);
+    const sortedStages = stgs.sort((a, b) =>
+      a.kilometers - b.kilometers === 0
+        ? a.days - b.days
+        : a.kilometers - b.kilometers
+    );
 
     let reorderNeeded = false;
     for (let i = 0; i < sortedStages.length - 1; i++) {

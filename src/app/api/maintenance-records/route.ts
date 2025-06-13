@@ -6,6 +6,8 @@ import { maintenanceSparePartService } from "@/backend/services/maintenance-spar
 import { MaintenanceRecordWithDetails } from "@/types/maintenance-record";
 import { maintenanceActivityService } from "@/backend/services/maintenance-activity-service";
 import { mileageRecordService } from "@/backend/services/mileage-record-service";
+import { MaintenanceSparePartBase } from "@/types/maintenance-spare-part";
+import { MaintenanceActivityBase } from "@/types/maintenance-activity";
 /**
  * GET /api/maintenance-records
  * Obtener registros de mantenimiento paginados
@@ -260,6 +262,45 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    let mileageRecord = body.mileage_record;
+
+    if (
+      mileageRecord &&
+      body.mileage &&
+      body.mileage !== mileageRecord.kilometers
+    ) {
+      console.log(
+        "Mileage provided but does not match existing mileage record, updating..."
+      );
+      console.log("Updating existing mileage record");
+      mileageRecordService.update({
+        id: body.mileage_record.id,
+        user_id: session.user.id,
+        kilometers: body.mileage,
+      });
+    } else if (body.mileage && !mileageRecord) {
+      // Si se proporciona un kilometraje sin un registro de kilometraje existente, creamos uno nuevo
+      mileageRecord = await mileageRecordService.create({
+        equipment_id: body.equipment_id,
+        record_date: body.start_datetime,
+        kilometers: body.mileage,
+        user_id: session.user.id,
+      });
+
+      if (!mileageRecord) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Error al crear el registro de kilometraje",
+          },
+          { status: 500 }
+        );
+      }
+
+      body.mileage_record_id = mileageRecord.id;
+    }
+
     const result = await maintenanceRecordService.update({
       id: body.id,
       equipment_id: body.equipment_id,
@@ -298,55 +339,90 @@ export async function PUT(request: NextRequest) {
     if (
       body.activities &&
       Array.isArray(body.activities) &&
-      body.activities.length > 0
+      body.original_activities &&
+      Array.isArray(body.original_activities)
     ) {
-      const activitiesResult = await maintenanceActivityService.bulkUpdate({
-        maintenance_record_id: body.id,
-        activities: body.activities,
-        user_id: session.user.id,
-      });
-
-      updated_MaintenanceRecord.activities =
-        activitiesResult.created_activities.map((act, index) => {
-          return {
-            id: act.id,
-            maintenance_record_id: activitiesResult.maintenance_record_id,
-            activity_id: body.activities[index].activity_id,
-            completed: body.activities[index].completed,
-            observations: body.activities[index].observations,
-            created_at: act.created_at,
-            updated_at: act.created_at,
-            user_id: session.user.id,
-            activity: body.activities[index],
-          };
+      const activitiesToDelete = body.original_activities.filter(
+        (act: MaintenanceActivityBase) =>
+          !body.activities.some(
+            (newAct: MaintenanceActivityBase) =>
+              newAct.activity_id === act.activity_id
+          )
+      );
+      if (activitiesToDelete.length > 0) {
+        for (const activity of activitiesToDelete) {
+          await maintenanceActivityService.delete(activity.id, session.user.id);
+        }
+      }
+      if (body.activities.length > 0) {
+        const activitiesResult = await maintenanceActivityService.bulkUpdate({
+          maintenance_record_id: body.id,
+          activities: body.activities,
+          user_id: session.user.id,
         });
+
+        updated_MaintenanceRecord.activities =
+          activitiesResult.created_activities.map((act, index) => {
+            return {
+              id: act.id,
+              maintenance_record_id: activitiesResult.maintenance_record_id,
+              activity_id: body.activities[index].activity_id,
+              completed: body.activities[index].completed,
+              observations: body.activities[index].observations,
+              created_at: act.created_at,
+              updated_at: act.created_at,
+              user_id: session.user.id,
+              activity: body.activities[index],
+            };
+          });
+      }
     }
 
     if (
       body.spare_parts &&
       Array.isArray(body.spare_parts) &&
-      body.spare_parts.length > 0
+      body.original_spare_parts &&
+      Array.isArray(body.original_spare_parts)
     ) {
-      const sparePartsResult = await maintenanceSparePartService.bulkUpdate({
-        maintenance_record_id: body.id,
-        spare_parts: body.spare_parts,
-        user_id: session.user.id,
-      });
+      const sparePartsToDelete = body.original_spare_parts.filter(
+        (sp: MaintenanceSparePartBase) =>
+          !body.spare_parts.some(
+            (newSp: MaintenanceSparePartBase) =>
+              newSp.spare_part_id === sp.spare_part_id
+          )
+      );
 
-      updated_MaintenanceRecord.spare_parts =
-        sparePartsResult.created_spare_parts.map((sp, index) => {
-          return {
-            id: sp.id,
-            maintenance_record_id: sparePartsResult.maintenance_record_id,
-            spare_part_id: body.spare_parts[index].spare_part_id,
-            quantity: body.spare_parts[index].quantity,
-            unit_price: body.spare_parts[index].price,
-            created_at: sp.created_at,
-            updated_at: sp.created_at,
-            user_id: session.user.id,
-            spare_part: body.spare_parts[index],
-          };
+      if (sparePartsToDelete.length > 0) {
+        for (const sparePart of sparePartsToDelete) {
+          await maintenanceSparePartService.delete(
+            sparePart.id,
+            session.user.id
+          );
+        }
+      }
+
+      if (body.spare_parts.length > 0) {
+        const sparePartsResult = await maintenanceSparePartService.bulkUpdate({
+          maintenance_record_id: body.id,
+          spare_parts: body.spare_parts,
+          user_id: session.user.id,
         });
+
+        updated_MaintenanceRecord.spare_parts =
+          sparePartsResult.created_spare_parts.map((sp, index) => {
+            return {
+              id: sp.id,
+              maintenance_record_id: sparePartsResult.maintenance_record_id,
+              spare_part_id: body.spare_parts[index].spare_part_id,
+              quantity: body.spare_parts[index].quantity,
+              unit_price: body.spare_parts[index].price,
+              created_at: sp.created_at,
+              updated_at: sp.created_at,
+              user_id: session.user.id,
+              spare_part: body.spare_parts[index],
+            };
+          });
+      }
     }
 
     return NextResponse.json({

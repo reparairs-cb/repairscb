@@ -86,6 +86,7 @@ export async function POST(request: Request) {
     }
 
     data.user_id = session.user.id;
+    data.record_date = data.record_date;
     const result = await mileageRecordService.create(data);
 
     return NextResponse.json({

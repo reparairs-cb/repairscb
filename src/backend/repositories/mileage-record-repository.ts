@@ -14,6 +14,7 @@ import {
   MileageRecordsWithEquipmentResponse,
 } from "@/types/mileage-record";
 import { MileageRecordErrorCodes } from "@/lib/errors";
+import { dateToLocalISOString } from "@/lib/utils";
 
 export class MileageRecordError extends Error {
   public readonly code: MileageRecordErrorCodes;
@@ -65,6 +66,8 @@ class MileageRecordRepository {
           "Record date cannot be in the future"
         );
       }
+
+      console.log("Creating mileage record with data:", mileageRecord);
 
       const result = await this.db.query(
         "SELECT create_mileage_record($1, $2, $3, $4)",
@@ -523,7 +526,8 @@ class MileageRecordRepository {
 
       return records.data.some(
         (record) =>
-          record.record_date.toDateString() === recordDate.toDateString() &&
+          dateToLocalISOString(record.record_date).split("T")[0] ===
+            dateToLocalISOString(recordDate).split("T")[0] &&
           (excludeId ? record.id !== excludeId : true)
       );
     } catch (error) {

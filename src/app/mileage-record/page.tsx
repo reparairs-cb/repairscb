@@ -234,6 +234,11 @@ export default function MileageRecordPage() {
       message: "Registrando el kilometraje...",
     });
 
+    console.log("Creating mileage record with data:", {
+      equipment_id: data.equipment_id,
+      record_date: dateToLocalISOString(data.record_date),
+      kilometers: data.mileage,
+    });
     try {
       const res = await fetch("/api/mileage-record", {
         method: "POST",
@@ -242,7 +247,7 @@ export default function MileageRecordPage() {
         },
         body: JSON.stringify({
           equipment_id: data.equipment_id,
-          record_date: data.record_date,
+          record_date: dateToLocalISOString(data.record_date),
           kilometers: data.mileage,
         }),
       });
@@ -260,6 +265,7 @@ export default function MileageRecordPage() {
 
       const newMileageRecord: MileageRecordBase = {
         ...data,
+        record_date: new Date(dateToLocalISOString(data.record_date)),
         id: newMileageRecordData.id,
         created_at: new Date(newMileageRecordData.created_at),
         kilometers: data.mileage,

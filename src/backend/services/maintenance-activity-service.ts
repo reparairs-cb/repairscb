@@ -725,7 +725,7 @@ class MaintenanceActivityService {
   private async validateBulkUpdateBusinessRules(
     bulkUpdate: BulkMaintenanceActivityUpdate
   ): Promise<void> {
-    if (!bulkUpdate.activities || bulkUpdate.activities.length === 0) {
+    if (!bulkUpdate.activities) {
       throw new MaintenanceActivityError(
         MaintenanceActivityErrorCodes.DATABASE_ERROR,
         "Activities list cannot be empty for bulk update"

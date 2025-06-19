@@ -7,7 +7,7 @@ import { MaintenanceRecordWithDetails } from "@/types/maintenance-record";
 import { maintenanceActivityService } from "@/backend/services/maintenance-activity-service";
 import { mileageRecordService } from "@/backend/services/mileage-record-service";
 import { MaintenanceSparePartBase } from "@/types/maintenance-spare-part";
-import { MaintenanceActivityBase } from "@/types/maintenance-activity";
+
 /**
  * GET /api/maintenance-records
  * Obtener registros de mantenimiento paginados
@@ -349,27 +349,25 @@ export async function PUT(request: NextRequest) {
         "Updating activities for maintenance record with ID:",
         body.id
       );
-      if (body.activities.length > 0) {
-        const activitiesResult = await maintenanceActivityService.bulkUpdate({
-          maintenance_record_id: body.id,
-          activities: body.activities,
-          user_id: session.user.id,
-        });
+      const activitiesResult = await maintenanceActivityService.bulkUpdate({
+        maintenance_record_id: body.id,
+        activities: body.activities,
+        user_id: session.user.id,
+      });
 
-        updated_MaintenanceRecord.activities =
-          activitiesResult.processed_activities.map((act, index) => {
-            return {
-              id: act.id,
-              maintenance_record_id: activitiesResult.maintenance_record_id,
-              activity_id: body.activities[index].activity_id,
-              status: body.activities[index].status,
-              observations: body.activities[index].observations,
-              created_at: new Date(),
-              user_id: act.created_at,
-              activity: body.activities[index],
-            };
-          });
-      }
+      updated_MaintenanceRecord.activities =
+        activitiesResult.processed_activities.map((act, index) => {
+          return {
+            id: act.id,
+            maintenance_record_id: activitiesResult.maintenance_record_id,
+            activity_id: body.activities[index].activity_id,
+            status: body.activities[index].status,
+            observations: body.activities[index].observations,
+            created_at: new Date(),
+            user_id: act.created_at,
+            activity: body.activities[index],
+          };
+        });
     }
 
     console.log(

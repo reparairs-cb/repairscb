@@ -519,10 +519,6 @@ class MileageRecordRepository {
       // Implementación usando getByEquipment y filtrar por fecha
       const records = await this.getByEquipment(equipmentId, userId, 0, 0);
       return records.data.find((record) => {
-        console.log("Checking record:", record);
-        console.log("Record date:", record.record_date.toISOString());
-        console.log("Record date local:", dateToLocalISOString(recordDate));
-        console.log("Exclude ID:", excludeId);
         return (
           record.record_date.toISOString().split("T")[0] ===
             dateToLocalISOString(recordDate).split("T")[0] &&

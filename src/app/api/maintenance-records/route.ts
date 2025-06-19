@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       // Si se proporciona un kilometraje sin un registro de kilometraje existente, creamos uno nuevo
       mileageRecord = await mileageRecordService.create({
         equipment_id: body.equipment_id,
-        record_date: body.start_datetime,
+        record_date: new Date(body.start_datetime),
         kilometers: body.mileage,
         user_id: session.user.id,
       });
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
       Array.isArray(body.activities) &&
       body.activities.length > 0
     ) {
-      const activitiesResult = await maintenanceActivityService.bulkUpdate({
+      const activitiesResult = await maintenanceActivityService.bulkCreate({
         maintenance_record_id: result.id,
         activities: body.activities,
         user_id: session.user.id,
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
             id: act.id,
             maintenance_record_id: activitiesResult.maintenance_record_id,
             activity_id: body.activities[index].activity_id,
-            completed: body.activities[index].completed,
+            status: body.activities[index].status,
             observations: body.activities[index].observations,
             created_at: act.created_at,
             updated_at: act.created_at,
@@ -268,18 +268,21 @@ export async function PUT(request: NextRequest) {
     if (
       mileageRecord &&
       body.mileage &&
-      body.mileage !== mileageRecord.kilometers
+      body.mileage !== mileageRecord.kilometers &&
+      body.start_datetime.split("T")[0] ===
+        mileageRecord.record_date.split("T")[0]
     ) {
-      console.log(
-        "Mileage provided but does not match existing mileage record, updating..."
-      );
-      console.log("Updating existing mileage record");
       mileageRecordService.update({
         id: body.mileage_record.id,
         user_id: session.user.id,
         kilometers: body.mileage,
       });
-    } else if (body.mileage && !mileageRecord) {
+    } else if (
+      body.mileage &&
+      (!mileageRecord ||
+        body.start_datetime.split("T")[0] !==
+          mileageRecord.record_date.split("T")[0])
+    ) {
       // Si se proporciona un kilometraje sin un registro de kilometraje existente, creamos uno nuevo
       mileageRecord = await mileageRecordService.create({
         equipment_id: body.equipment_id,
@@ -342,18 +345,10 @@ export async function PUT(request: NextRequest) {
       body.original_activities &&
       Array.isArray(body.original_activities)
     ) {
-      const activitiesToDelete = body.original_activities.filter(
-        (act: MaintenanceActivityBase) =>
-          !body.activities.some(
-            (newAct: MaintenanceActivityBase) =>
-              newAct.activity_id === act.activity_id
-          )
+      console.log(
+        "Updating activities for maintenance record with ID:",
+        body.id
       );
-      if (activitiesToDelete.length > 0) {
-        for (const activity of activitiesToDelete) {
-          await maintenanceActivityService.delete(activity.id, session.user.id);
-        }
-      }
       if (body.activities.length > 0) {
         const activitiesResult = await maintenanceActivityService.bulkUpdate({
           maintenance_record_id: body.id,
@@ -362,21 +357,25 @@ export async function PUT(request: NextRequest) {
         });
 
         updated_MaintenanceRecord.activities =
-          activitiesResult.created_activities.map((act, index) => {
+          activitiesResult.processed_activities.map((act, index) => {
             return {
               id: act.id,
               maintenance_record_id: activitiesResult.maintenance_record_id,
               activity_id: body.activities[index].activity_id,
-              completed: body.activities[index].completed,
+              status: body.activities[index].status,
               observations: body.activities[index].observations,
-              created_at: act.created_at,
-              updated_at: act.created_at,
-              user_id: session.user.id,
+              created_at: new Date(),
+              user_id: act.created_at,
               activity: body.activities[index],
             };
           });
       }
     }
+
+    console.log(
+      "Updating spare parts for maintenance record with ID:",
+      body.id
+    );
 
     if (
       body.spare_parts &&

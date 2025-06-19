@@ -196,7 +196,7 @@ class MaintenanceActivityService {
     id: string,
     userId: string,
     observations?: string
-  ): Promise<{ id: string; completed: boolean } | null> {
+  ): Promise<{ id: string } | null> {
     try {
       // Validar que el registro existe antes de completar
       const existingRecord = await this.repository.getById(id);
@@ -207,7 +207,7 @@ class MaintenanceActivityService {
         );
       }
 
-      if (existingRecord.completed) {
+      if (existingRecord.status === "completed") {
         throw new MaintenanceActivityError(
           MaintenanceActivityErrorCodes.INVALID_STATUS,
           "Activity is already completed"
@@ -241,7 +241,7 @@ class MaintenanceActivityService {
         );
       }
 
-      if (!existingRecord.completed) {
+      if (existingRecord.status !== "completed") {
         throw new MaintenanceActivityError(
           MaintenanceActivityErrorCodes.INVALID_STATUS,
           "Activity is already pending"
@@ -308,6 +308,21 @@ class MaintenanceActivityService {
     }
   }
 
+  async bulkCreate(bulkCreate: BulkMaintenanceActivityUpdate): Promise<{
+    maintenance_record_id: string;
+    created_activities: { id: string; created_at: Date }[];
+  }> {
+    try {
+      // Validaciones de negocio para creación masiva
+      await this.validateBulkUpdateBusinessRules(bulkCreate);
+
+      return await this.repository.bulkCreate(bulkCreate);
+    } catch (error) {
+      console.error("Error en creación masiva de actividades:", error);
+      throw error;
+    }
+  }
+
   /**
    * Actualización masiva de actividades para un mantenimiento
    * @param bulkUpdate - Datos para actualización masiva
@@ -315,7 +330,7 @@ class MaintenanceActivityService {
    */
   async bulkUpdate(bulkUpdate: BulkMaintenanceActivityUpdate): Promise<{
     maintenance_record_id: string;
-    created_activities: { id: string; created_at: Date }[];
+    processed_activities: { id: string; created_at: Date }[];
   }> {
     try {
       // Validaciones de negocio para actualización masiva
@@ -355,7 +370,7 @@ class MaintenanceActivityService {
   async addActivityToMaintenance(
     maintenanceRecordId: string,
     activityId: string,
-    completed: boolean = false,
+    status: "completed" | "pending" | "in_progress" = "pending",
     observations: string | undefined,
     userId: string
   ): Promise<{ id: string; created_at: Date } | null> {
@@ -377,7 +392,7 @@ class MaintenanceActivityService {
       return await this.create({
         maintenance_record_id: maintenanceRecordId,
         activity_id: activityId,
-        completed,
+        status: status,
         observations,
         user_id: userId,
       });
@@ -398,7 +413,7 @@ class MaintenanceActivityService {
     id: string,
     userId: string,
     observations?: string
-  ): Promise<{ id: string; completed: boolean } | null> {
+  ): Promise<{ id: string } | null> {
     try {
       const existingRecord = await this.repository.getById(id);
       if (!existingRecord) {
@@ -408,7 +423,7 @@ class MaintenanceActivityService {
         );
       }
 
-      if (existingRecord.completed) {
+      if (existingRecord.status === "completed") {
         return await this.repository.markPending(id, userId);
       } else {
         return await this.repository.complete(id, userId, observations);
@@ -528,7 +543,9 @@ class MaintenanceActivityService {
       for (const [maintenanceId, activities] of Object.entries(
         maintenanceGroups
       )) {
-        const completedCount = activities.filter((a) => a.completed).length;
+        const completedCount = activities.filter(
+          (a) => a.status === "completed"
+        ).length;
         const efficiencyRate =
           activities.length > 0
             ? (completedCount / activities.length) * 100
@@ -585,7 +602,7 @@ class MaintenanceActivityService {
     activityIds: string[],
     userId: string,
     observations?: string
-  ): Promise<Array<{ id: string; completed: boolean; success: boolean }>> {
+  ): Promise<Array<{ id: string; success: boolean }>> {
     try {
       if (!activityIds || activityIds.length === 0) {
         throw new MaintenanceActivityError(
@@ -603,23 +620,20 @@ class MaintenanceActivityService {
 
       const results: Array<{
         id: string;
-        completed: boolean;
         success: boolean;
       }> = [];
 
       for (const activityId of activityIds) {
         try {
-          const result = await this.complete(activityId, userId, observations);
+          await this.complete(activityId, userId, observations);
           results.push({
             id: activityId,
-            completed: result?.completed || false,
             success: true,
           });
         } catch (error) {
           console.warn(`Failed to complete activity ${activityId}:`, error);
           results.push({
             id: activityId,
-            completed: false,
             success: false,
           });
         }
@@ -693,7 +707,7 @@ class MaintenanceActivityService {
 
     // Si se está marcando como completada, debe tener observaciones
     if (
-      updateData.completed === true &&
+      updateData.status === "completed" &&
       !updateData.observations?.trim() &&
       !existingRecord.observations?.trim()
     ) {

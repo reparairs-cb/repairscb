@@ -51,7 +51,7 @@ class MaintenanceActivityRepository {
         [
           maintenanceActivity.maintenance_record_id,
           maintenanceActivity.activity_id,
-          maintenanceActivity.completed || false,
+          maintenanceActivity.status,
           maintenanceActivity.observations || null,
           maintenanceActivity.user_id,
         ]
@@ -206,8 +206,8 @@ class MaintenanceActivityRepository {
           maintenanceActivity.id,
           maintenanceActivity.maintenance_record_id || null,
           maintenanceActivity.activity_id || null,
-          maintenanceActivity.completed !== undefined
-            ? maintenanceActivity.completed
+          maintenanceActivity.status !== undefined
+            ? maintenanceActivity.status
             : null,
           maintenanceActivity.observations || null,
           maintenanceActivity.user_id,
@@ -256,7 +256,7 @@ class MaintenanceActivityRepository {
     id: string,
     userId: string,
     observations?: string
-  ): Promise<{ id: string; completed: boolean }> {
+  ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
         "SELECT complete_maintenance_activity($1, $2, $3)",
@@ -266,7 +266,6 @@ class MaintenanceActivityRepository {
       const response = result.rows[0].complete_maintenance_activity;
       return {
         id: response.id,
-        completed: response.completed,
       };
     } catch (err) {
       this.handleError(err as GlobalErrorResponse, "complete", {
@@ -358,7 +357,7 @@ class MaintenanceActivityRepository {
         id: activity.id,
         maintenance_record_id: activity.maintenance_record_id,
         activity_id: activity.activity_id,
-        completed: activity.completed,
+        status: activity.status,
         observations: activity.observations,
         created_at: new Date(activity.created_at),
         updated_at: activity.updated_at
@@ -401,12 +400,38 @@ class MaintenanceActivityRepository {
     }
   }
 
+  async bulkCreate(bulkCreate: BulkMaintenanceActivityUpdate): Promise<{
+    maintenance_record_id: string;
+    created_activities: { id: string; created_at: Date }[];
+  }> {
+    try {
+      const result = await this.db.query(
+        "SELECT bulk_create_maintenance_activities($1, $2, $3)",
+        [
+          bulkCreate.maintenance_record_id,
+          JSON.stringify(bulkCreate.activities),
+          bulkCreate.user_id,
+        ]
+      );
+
+      const response = result.rows[0].bulk_create_maintenance_activities;
+      return {
+        maintenance_record_id: response.maintenance_record_id,
+        created_activities: response.created_activities,
+      };
+    } catch (err) {
+      this.handleError(err as GlobalErrorResponse, "bulkCreate", {
+        bulkCreate,
+      });
+    }
+  }
+
   /**
    * Actualización masiva de actividades para un mantenimiento
    */
   async bulkUpdate(bulkUpdate: BulkMaintenanceActivityUpdate): Promise<{
     maintenance_record_id: string;
-    created_activities: { id: string; created_at: Date }[];
+    processed_activities: { id: string; created_at: Date }[];
   }> {
     try {
       const result = await this.db.query(
@@ -421,7 +446,7 @@ class MaintenanceActivityRepository {
       const response = result.rows[0].bulk_update_maintenance_activities;
       return {
         maintenance_record_id: response.maintenance_record_id,
-        created_activities: response.created_activities,
+        processed_activities: response.processed_activities,
       };
     } catch (err) {
       this.handleError(err as GlobalErrorResponse, "bulkUpdate", {
@@ -505,7 +530,7 @@ class MaintenanceActivityRepository {
             'id', ma.id,
             'maintenance_record_id', ma.maintenance_record_id,
             'activity_id', ma.activity_id,
-            'completed', ma.completed,
+            'status', ma.status,
             'observations', ma.observations,
             'created_at', ma.created_at,
             'updated_at', ma.updated_at
@@ -514,7 +539,7 @@ class MaintenanceActivityRepository {
         FROM mnt.maintenance_activities ma
         INNER JOIN mnt.maintenance_records mr ON ma.maintenance_record_id = mr.id
         WHERE ma.maintenance_record_id = $1 
-          AND ma.completed = TRUE 
+          AND ma.status = 'completed' 
           AND mr.user_id = $2
         ORDER BY ma.updated_at DESC
       `,
@@ -549,7 +574,7 @@ class MaintenanceActivityRepository {
             'id', ma.id,
             'maintenance_record_id', ma.maintenance_record_id,
             'activity_id', ma.activity_id,
-            'completed', ma.completed,
+            'status', ma.status,
             'observations', ma.observations,
             'created_at', ma.created_at,
             'updated_at', ma.updated_at,
@@ -623,7 +648,7 @@ class MaintenanceActivityRepository {
       id: data.id,
       maintenance_record_id: data.maintenance_record_id,
       activity_id: data.activity_id,
-      completed: data.completed,
+      status: data.status,
       observations: data.observations,
       created_at: new Date(data.created_at),
       updated_at: data.updated_at ? new Date(data.updated_at) : undefined,

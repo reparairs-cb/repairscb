@@ -10,6 +10,8 @@ import {
   MultiEquipmentWithRecords,
   MultiEquipmentMaintenancePlan,
   EquipmentMaintenancePlan,
+  EqWithPendingInProgressMRs,
+  MultiEqWithPendingInProgressMRs,
 } from "@/types/equipment";
 
 class EquipmentRepository {
@@ -164,6 +166,79 @@ class EquipmentRepository {
         console.error("Error al obtener equipments paginados:", err.stack);
       } else {
         console.error("Error al obtener equipments paginados:", err);
+      }
+      throw err;
+    }
+  }
+
+  async getAllWithPendingMRs(
+    user_id: string,
+    limit: number = 10,
+    offset: number = 0
+  ): Promise<MultiEqWithPendingInProgressMRs> {
+    try {
+      const result = await this.db.query(
+        "SELECT get_all_equipment_with_pending_maintenance($1, $2, $3)",
+        [user_id, limit, offset]
+      );
+
+      const response =
+        result.rows[0].get_all_equipment_with_pending_maintenance;
+
+      const data: EqWithPendingInProgressMRs[] = response.data.map(
+        (equipment: EqWithPendingInProgressMRs) => ({
+          id: equipment.id,
+          type: equipment.type,
+          license_plate: equipment.license_plate,
+          code: equipment.code,
+          created_at: new Date(equipment.created_at),
+          updated_at: equipment.updated_at
+            ? new Date(equipment.updated_at)
+            : undefined,
+          user_id: equipment.user_id,
+          maintenance_plan_id: equipment.maintenance_plan_id,
+          maintenance_plan: equipment.maintenance_plan
+            ? {
+                id: equipment.maintenance_plan.id,
+                name: equipment.maintenance_plan.name,
+                description: equipment.maintenance_plan.description,
+              }
+            : undefined,
+          maintenance_records: equipment.maintenance_records
+            ? equipment.maintenance_records.map((record) => ({
+                id: record.id,
+                start_datetime: new Date(record.start_datetime),
+                end_datetime: record.end_datetime
+                  ? new Date(record.end_datetime)
+                  : undefined,
+                observations: record.observations,
+                maintenance_type: record.maintenance_type
+                  ? {
+                      id: record.maintenance_type.id,
+                      type: record.maintenance_type.type,
+                      path: record.maintenance_type.path,
+                    }
+                  : undefined,
+              }))
+            : [],
+        })
+      );
+
+      return {
+        total: response.total,
+        limit: response.limit,
+        offset: response.offset,
+        pages: response.pages,
+        data,
+      };
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(
+          "Error al obtener equipments con MRs pendientes:",
+          err.stack
+        );
+      } else {
+        console.error("Error al obtener equipments con MRs pendientes:", err);
       }
       throw err;
     }

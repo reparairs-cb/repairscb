@@ -1,6 +1,9 @@
 import { BaseModel } from "@/types/base-model";
 import { MileageRecordBase } from "./mileage-record";
-import { MaintenanceRecordBase } from "./maintenance-record";
+import {
+  MaintenanceRecordBase,
+  MaintenanceRecordWithDetails,
+} from "./maintenance-record";
 
 export interface EquipmentBase extends BaseModel {
   type: string;
@@ -98,4 +101,24 @@ export interface MultiEquipmentMaintenancePlan {
   offset: number;
   pages: number;
   data: EquipmentMaintenancePlan[];
+}
+
+export interface EqWithPendingInProgressMRs extends EquipmentBase {
+  maintenance_records: Pick<
+    MaintenanceRecordWithDetails,
+    | "activities"
+    | "start_datetime"
+    | "end_datetime"
+    | "observations"
+    | "id"
+    | "maintenance_type"
+  >[];
+}
+
+export interface MultiEqWithPendingInProgressMRs {
+  total: number;
+  limit: number;
+  offset: number;
+  pages: number;
+  data: EqWithPendingInProgressMRs[];
 }

@@ -42,10 +42,16 @@ interface SelectedSparePart {
   unit_price?: number;
 }
 
+const statusOptions = [
+  { value: "pending", label: "Pendiente" },
+  { value: "in_progress", label: "En Progreso" },
+  { value: "completed", label: "Completado" },
+];
+
 interface SelectedActivity {
   activity_id: string;
   activity: ActivityBase;
-  completed: boolean;
+  status: "pending" | "in_progress" | "completed";
   observations?: string;
 }
 
@@ -342,10 +348,14 @@ export default function MaintenanceRecordsPage() {
     try {
       const maintenancePayload = {
         ...data,
+        start_datetime: dateToLocalISOString(data.start_datetime),
+        end_datetime: data.end_datetime
+          ? dateToLocalISOString(data.end_datetime)
+          : undefined,
         mileage_record: selectedMileageRecord,
         activities: data.activities.map((act) => ({
           activity_id: act.activity_id,
-          completed: act.completed,
+          status: act.status,
           observations: act.observations || "",
         })),
         spare_parts: data.spare_parts.map((sp) => ({
@@ -397,7 +407,7 @@ export default function MaintenanceRecordsPage() {
           {
             equipment_id: data.equipment_id,
             kilometers: newMileageRecord.kilometers,
-            record_date: newMileageRecord.record_date,
+            record_date: new Date(newMileageRecord.record_date),
             id: newMileageRecord.id,
             created_at: newMileageRecord.record_date,
           },
@@ -446,13 +456,13 @@ export default function MaintenanceRecordsPage() {
           activities: selectedActivities.map((act, index) => ({
             id: newRecord.activities?.[index].id || crypto.randomUUID(),
             activity_id: act.activity_id,
-            completed: act.completed,
             observations: act.observations,
             activity: activities.find(
               (activity) => activity.id === act.activity_id
             ) as ActivityBase,
             maintenance_record_id: newRecord.id, // Simulate new ID for demo purposes
             created_at: new Date(),
+            status: act.status,
           })),
           user_id: session.user.id,
         } as MaintenanceRecordWithDetails,
@@ -491,7 +501,11 @@ export default function MaintenanceRecordsPage() {
 
       const updatePayload = {
         ...data,
-        mileage_record: selectedMileageRecord,
+        start_datetime: dateToLocalISOString(data.start_datetime),
+        end_datetime: data.end_datetime
+          ? dateToLocalISOString(data.end_datetime)
+          : undefined,
+        mileage_record: editingItem.mileage_info,
         id: editingItem.id,
         spare_parts: data.spare_parts.map((sp) => ({
           id: sp.id,
@@ -502,7 +516,7 @@ export default function MaintenanceRecordsPage() {
         activities: data.activities.map((act) => ({
           id: act.id,
           activity_id: act.activity_id,
-          completed: act.completed,
+          status: act.status,
           observations: act.observations || "",
         })),
         original_spare_parts: editingItem.spare_parts
@@ -517,7 +531,7 @@ export default function MaintenanceRecordsPage() {
           ? editingItem.activities.map((act) => ({
               id: act.id,
               activity_id: act.activity_id,
-              completed: act.completed,
+              status: act.status,
               observations: act.observations || "",
             }))
           : [],
@@ -571,7 +585,7 @@ export default function MaintenanceRecordsPage() {
                 activities: data.activities.map((act) => ({
                   id: act.id || crypto.randomUUID(),
                   activity_id: act.activity_id,
-                  completed: act.completed,
+                  status: act.status,
                   observations: act.observations || "",
                   activity: activities.find(
                     (activity) => activity.id === act.activity_id
@@ -662,7 +676,7 @@ export default function MaintenanceRecordsPage() {
       "activities",
       item.activities?.map((act) => ({
         activity_id: act.activity_id,
-        completed: act.completed,
+        status: act.status,
         observations: act.observations || "",
       })) || []
     );
@@ -689,7 +703,7 @@ export default function MaintenanceRecordsPage() {
   const addActivity = () => {
     appActivity({
       activity_id: "",
-      completed: true,
+      status: "pending",
       observations: "",
     });
   };
@@ -738,7 +752,9 @@ export default function MaintenanceRecordsPage() {
           .map((item) => (
             <DataCard
               key={item.id}
-              title={`${item.equipment?.type} - ${item.equipment?.code}`}
+              title={`${
+                item.equipment?.type
+              } - ${item.start_datetime.toLocaleDateString()}`}
               subtitle={item.maintenance_type?.type}
               badges={[
                 {
@@ -753,18 +769,12 @@ export default function MaintenanceRecordsPage() {
                 },
                 { label: "Tipo", value: item.maintenance_type?.type },
                 {
-                  label: "Inicio",
-                  value: item.start_datetime.toLocaleString(),
-                },
-                {
-                  label: "Fin",
-                  value: item.end_datetime
-                    ? item.end_datetime.toLocaleString()
-                    : "En progreso",
-                },
-                {
                   label: "Kilometraje",
                   value: `${item.mileage_info?.kilometers || "N/A"} km`,
+                },
+                {
+                  label: "Descripción",
+                  value: item.observations || "N/A",
                 },
               ]}
               onEdit={() => {
@@ -1016,21 +1026,33 @@ export default function MaintenanceRecordsPage() {
                               </div>
                             </div>
 
-                            {/* <div className="flex items-center space-x-2">
+                            <div className="flex flex-col gap-2 w-full">
+                              <Label className="flex-1">Estado</Label>
                               <Controller
-                                name={`activities.${index}.completed`}
+                                name={`activities.${index}.status`}
                                 control={control}
                                 render={({ field }) => (
-                                  <Checkbox
-                                    checked={field.value}
-                                    onClick={() => {
-                                      field.onChange(!field.value);
-                                    }}
-                                  />
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Seleccionar estado" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
+                                      {statusOptions.map((option) => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 )}
                               />
-                              <Label>Completada</Label>
-                            </div> */}
+                            </div>
 
                             <div className="flex flex-col gap-2 w-full">
                               <Label className="flex-1">Observaciones</Label>
@@ -1049,6 +1071,16 @@ export default function MaintenanceRecordsPage() {
                                 )}
                               />
                             </div>
+                            {errors.activities?.[index]?.activity_id && (
+                              <p className="text-red-500 text-sm mt-1">
+                                {errors.activities[index].activity_id.message}
+                              </p>
+                            )}
+                            {errors.activities?.[index]?.status && (
+                              <p className="text-red-500 text-sm mt-1">
+                                {errors.activities[index].status.message}
+                              </p>
+                            )}
                           </div>
                           <div className="absolute -top-1 -right-1">
                             <Button

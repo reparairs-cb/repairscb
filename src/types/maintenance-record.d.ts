@@ -3,6 +3,8 @@ import { MaintenanceSparePartBase } from "./maintenance-spare-part";
 import { MaintenanceActivityBase } from "./maintenance-activity";
 import { MaintenanceTypeBase } from "./maintenance-type";
 import { EquipmentBase } from "./equipment";
+import { ActivityBase } from "./activity";
+import { SparePartBase } from "./spare-part";
 
 export interface MaintenanceRecordBase extends BaseModel {
   equipment_id: string;

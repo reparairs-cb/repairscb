@@ -34,7 +34,42 @@ class MileageRecordService {
   ): Promise<{ id: string; created_at: Date } | null> {
     try {
       // Validaciones de negocio adicionales
-      await this.validateBusinessRules(mileageRecord);
+      try {
+        await this.validateBusinessRules(mileageRecord);
+      } catch (error) {
+        if (
+          error instanceof MileageRecordError &&
+          error.code === MileageRecordErrorCodes.DUPLICATE_DATE
+        ) {
+          // Si ya existe un registro para esa fecha, buscar el existente
+          const existingRecord = await this.repository.existsForDate(
+            mileageRecord.equipment_id,
+            new Date(mileageRecord.record_date),
+            mileageRecord.user_id
+          );
+
+          console.log(
+            "Existing record found for duplicate date: ---------------",
+            existingRecord
+          );
+
+          if (existingRecord) {
+            await this.repository.update({
+              id: existingRecord.id,
+              kilometers: mileageRecord.kilometers,
+              record_date: mileageRecord.record_date,
+              user_id: mileageRecord.user_id,
+            });
+
+            return {
+              id: existingRecord.id,
+              created_at: existingRecord.created_at,
+            };
+          }
+        }
+
+        throw error; // Re-lanzar otros errores
+      }
 
       // Validar que el equipo existe
       if (
@@ -326,7 +361,7 @@ class MileageRecordService {
     recordDate: Date,
     userId: string,
     excludeId?: string
-  ): Promise<boolean> {
+  ): Promise<MileageRecordBase | undefined> {
     try {
       return await this.repository.existsForDate(
         equipmentId,

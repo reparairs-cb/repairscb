@@ -5,14 +5,15 @@ import {
   EquipmentUpdate,
   MultiEquipmentMaintenancePlan,
   MultiEquipmentWithRecords,
+  MultiEqWithPendingInProgressMRs,
 } from "@/types/equipment";
+import { maintenanceActivityService } from "./maintenance-activity-service";
 
 /**
  * Servicio para crear un nuevo equipo
  * @param equipment - Datos del equipo a crear
  * @returns El equipo creado
  */
-
 class EquipmentService {
   private repository = equipmentRepository;
   constructor() {}
@@ -61,6 +62,38 @@ class EquipmentService {
       return await this.repository.getAll(limit, offset, userId);
     } catch (error) {
       console.error("Error al obtener todos los equipos:", error);
+      throw error;
+    }
+  }
+
+  async getAllWithPendingMRs(
+    userId: string,
+    limit: number,
+    offset: number
+  ): Promise<MultiEqWithPendingInProgressMRs> {
+    try {
+      const data = await this.repository.getAllWithPendingMRs(
+        userId,
+        limit,
+        offset
+      );
+      for (const equipment of data.data) {
+        if (equipment.maintenance_records) {
+          for (const record of equipment.maintenance_records) {
+            record.activities =
+              await maintenanceActivityService.getByMaintenanceRecordWithDetails(
+                record.id,
+                userId
+              );
+          }
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error(
+        "Error al obtener todos los equipos con MR pendientes:",
+        error
+      );
       throw error;
     }
   }

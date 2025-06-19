@@ -438,12 +438,7 @@ class MileageRecordRepository {
         );
       }
 
-      if (mileageRecord.record_date && mileageRecord.record_date > new Date()) {
-        throw new MileageRecordError(
-          MileageRecordErrorCodes.INVALID_DATE_RANGE,
-          "Record date cannot be in the future"
-        );
-      }
+      console.log("Updating mileage record with data:", mileageRecord);
 
       const result = await this.db.query(
         "SELECT update_mileage_record($1, $2, $3, $4, $5)",
@@ -519,20 +514,24 @@ class MileageRecordRepository {
     recordDate: Date,
     userId: string,
     excludeId?: string
-  ): Promise<boolean> {
+  ): Promise<MileageRecordBase | undefined> {
     try {
       // Implementación usando getByEquipment y filtrar por fecha
       const records = await this.getByEquipment(equipmentId, userId, 0, 0);
-
-      return records.data.some(
-        (record) =>
-          dateToLocalISOString(record.record_date).split("T")[0] ===
+      return records.data.find((record) => {
+        console.log("Checking record:", record);
+        console.log("Record date:", record.record_date.toISOString());
+        console.log("Record date local:", dateToLocalISOString(recordDate));
+        console.log("Exclude ID:", excludeId);
+        return (
+          record.record_date.toISOString().split("T")[0] ===
             dateToLocalISOString(recordDate).split("T")[0] &&
           (excludeId ? record.id !== excludeId : true)
-      );
+        );
+      });
     } catch (error) {
       console.error("Error checking mileage record existence for date:", error);
-      return false;
+      return undefined;
     }
   }
 

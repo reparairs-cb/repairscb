@@ -49,7 +49,9 @@ export const maintenanceSparePartSchema = z.object({
 
 export const maintenanceActivitySchema = z.object({
   activity_id: z.string().min(1, "Activity is required"),
-  completed: z.boolean(),
+  status: z.enum(["completed", "pending", "in_progress"], {
+    required_error: "Status is required",
+  }),
   observations: z.string().optional(),
   id: z.string().optional(),
 });

@@ -55,7 +55,7 @@ export interface EquipmentWithPaginatedRecords extends EquipmentBase {
     limit: number;
     offset: number;
     pages: number;
-    data: MaintenanceRecordBase[];
+    data: MaintenanceRecordWithDetails[];
   };
   mileage_records?: {
     total: number;
@@ -68,6 +68,28 @@ export interface EquipmentWithPaginatedRecords extends EquipmentBase {
 
 export interface MultiEquipmentWithRecords extends MultiEquipment {
   data: EquipmentWithPaginatedRecords[];
+}
+
+export interface EquipmentWithMaintenanceCounts
+  extends EquipmentWithPaginatedRecords {
+  maintenance_count: {
+    total: number;
+    status: {
+      pending: number;
+      in_progress: number;
+      completed: number;
+    };
+    priority: {
+      low: number;
+      medium: number;
+      high: number;
+      immediate: number;
+    };
+  };
+}
+
+export interface MultiEquipmentWithRecordsAndCounts extends MultiEquipment {
+  data: EquipmentWithMaintenanceCounts[];
 }
 
 export interface EquipmentMileageRecord {

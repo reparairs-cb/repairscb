@@ -3,6 +3,7 @@ export interface MaintenanceActivityBase {
   maintenance_record_id: string;
   activity_id: string;
   status: "completed" | "pending" | "in_progress";
+  priority: "no" | "low" | "medium" | "high" | "immediate";
   observations?: string;
   created_at: Date;
   updated_at?: Date;
@@ -28,6 +29,7 @@ export interface MaintenanceActivityUpdate {
   maintenance_record_id?: string;
   activity_id?: string;
   status?: "completed" | "pending" | "in_progress";
+  priority?: "no" | "low" | "medium" | "high" | "immediate";
   observations?: string;
   user_id: string;
 }
@@ -60,7 +62,7 @@ export interface MaintenanceActivityStats {
 }
 
 export interface PendingMaintenanceActivity extends MaintenanceActivityBase {
-  activity?: Pick<ActivityBase, "id" | "name" | "status" | "description">;
+  activity?: Pick<ActivityBase, "id" | "name" | "status" | "description" | "priority">;
   maintenance_info?: Pick<
     MaintenanceRecordBase,
     "id" | "equipment_id" | "start_datetime" | "maintenance_type_id"
@@ -72,6 +74,7 @@ export interface BulkMaintenanceActivityUpdate {
   activities: Array<{
     activity_id: string;
     status?: "completed" | "pending" | "in_progress";
+    priority?: "no" | "low" | "medium" | "high" | "immediate";
     observations?: string;
   }>;
   user_id: string;

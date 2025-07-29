@@ -52,6 +52,9 @@ export const maintenanceActivitySchema = z.object({
   status: z.enum(["completed", "pending", "in_progress"], {
     required_error: "Status is required",
   }),
+  priority: z.enum(["no", "low", "medium", "high", "immediate"], {
+    required_error: "Priority is required",
+  }),
   observations: z.string().optional(),
   id: z.string().optional(),
 });

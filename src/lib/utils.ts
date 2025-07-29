@@ -1,3 +1,5 @@
+import { EquipmentWithMaintenanceCounts } from "@/types/equipment";
+import { MaintenanceRecordWithDetails } from "@/types/maintenance-record";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -37,4 +39,79 @@ export const createLocalDate = (dateString: string): Date => {
 
   // Date constructor con parámetros individuales usa zona horaria local
   return new Date(year, month - 1, day); // month - 1 porque Date usa índice 0-11
+};
+
+/*
+  Utilidad para obtener la etiqueta del estado de mantenimiento
+*/
+
+export const statusOptions = [
+  { value: "pending", label: "Pendiente" },
+  { value: "in_progress", label: "En Progreso" },
+  { value: "completed", label: "Completado" },
+];
+
+export const priorityOptions = [
+  { value: "no", label: "Sin Prioridad" },
+  { value: "low", label: "Baja" },
+  { value: "medium", label: "Media" },
+  { value: "high", label: "Alta" },
+  { value: "immediate", label: "Inmediata" },
+];
+
+export const getStatusLabel = (status: string) => {
+  const option = statusOptions.find((opt) => opt.value === status);
+  return option ? option.label : status;
+};
+
+export const getPriorityLabel = (priority: string) => {
+  const option = priorityOptions.find((opt) => opt.value === priority);
+  return option ? option.label : priority;
+};
+
+/*
+  Obtener el maintenance_count
+*/
+export const getMaintenanceCount = (
+  maintenanceRecords: MaintenanceRecordWithDetails[]
+): EquipmentWithMaintenanceCounts["maintenance_count"] => {
+  return {
+    total: maintenanceRecords.length,
+    status: {
+      pending:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some((activity) => activity.status === "pending")
+        ).length || 0,
+      in_progress:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some(
+            (activity) => activity.status === "in_progress"
+          )
+        ).length || 0,
+      completed:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some((activity) => activity.status === "completed")
+        ).length || 0,
+    },
+    priority: {
+      low:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some((activity) => activity.priority === "low")
+        ).length || 0,
+      medium:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some((activity) => activity.priority === "medium")
+        ).length || 0,
+      high:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some((activity) => activity.priority === "high")
+        ).length || 0,
+      immediate:
+        maintenanceRecords.filter((record) =>
+          record.activities?.some(
+            (activity) => activity.priority === "immediate"
+          )
+        ).length || 0,
+    },
+  };
 };

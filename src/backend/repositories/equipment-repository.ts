@@ -445,16 +445,46 @@ class EquipmentRepository {
     user_id: string,
     limit: number = 10,
     offset: number = 0,
+    maintenance_limit: number = 10,
+    maintenance_offset: number = 0,
     mileage_limit: number = 30,
-    mileage_offset: number = 0
+    mileage_offset: number = 0,
+    by_priority: string[] | null = null,
+    by_status: string[] | null = null,
+    sort_by: { by: string; order: "asc" | "desc" } | null = null
   ): Promise<MultiEquipmentWithRecords> {
     try {
+      console.log("Body Data:", {
+        user_id,
+        limit,
+        offset,
+        maintenance_limit,
+        maintenance_offset,
+        mileage_limit,
+        mileage_offset,
+        by_priority,
+        by_status,
+        sort_by,
+      });
       const result = await this.db.query(
-        "SELECT get_all_equipment_with_record($1, $2, $3, $4, $5)",
-        [user_id, limit, offset, mileage_limit, mileage_offset]
+        "SELECT get_all_equipment_with_record($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        [
+          user_id,
+          limit,
+          offset,
+          maintenance_limit,
+          maintenance_offset,
+          mileage_limit,
+          mileage_offset,
+          by_priority,
+          by_status,
+          sort_by,
+        ]
       );
 
       const response = result.rows[0].get_all_equipment_with_record;
+
+      console.log("Filtered equipment data:", response);
 
       const data: EquipmentWithPaginatedRecords[] = response.data.map(
         (equipment: EquipmentWithPaginatedRecords) => ({
@@ -467,6 +497,43 @@ class EquipmentRepository {
             ? new Date(equipment.updated_at)
             : undefined,
           user_id: equipment.user_id,
+          maintenance_records: equipment.maintenance_records
+            ? {
+                total: equipment.maintenance_records.total,
+                limit: equipment.maintenance_records.limit,
+                offset: equipment.maintenance_records.offset,
+                pages: equipment.maintenance_records.pages,
+                data: equipment.maintenance_records.data.map((record) => ({
+                  id: record.id,
+                  equipment_id: record.equipment_id,
+                  start_datetime: new Date(record.start_datetime),
+                  end_datetime: record.end_datetime
+                    ? new Date(record.end_datetime)
+                    : undefined,
+                  maintenance_type_id: record.maintenance_type_id,
+                  observations: record.observations,
+                  mileage_record_id: record.mileage_record_id,
+                  created_at: new Date(record.created_at),
+                  updated_at: record.updated_at
+                    ? new Date(record.updated_at)
+                    : undefined,
+                  user_id: record.user_id,
+                  maintenance_type: record.maintenance_type
+                    ? {
+                        id: record.maintenance_type.id,
+                        type: record.maintenance_type.type,
+                      }
+                    : undefined,
+                  mileage_info: record.mileage_info
+                    ? {
+                        id: record.mileage_info.id,
+                        record_date: new Date(record.mileage_info.record_date),
+                        kilometers: record.mileage_info.kilometers,
+                      }
+                    : undefined,
+                })),
+              }
+            : undefined,
           mileage_records: equipment.mileage_records
             ? {
                 total: equipment.mileage_records.total,
@@ -531,6 +598,8 @@ class EquipmentRepository {
     offset: number = 0
   ): Promise<MultiEquipmentMaintenancePlan> {
     try {
+      console.log("Fetching maintenance plan for user:", user_id);
+      console.log("Limit:", limit, "Offset:", offset);
       const result = await this.db.query(
         "SELECT get_all_maintenance_plan($1, $2, $3)",
         [user_id, limit, offset]

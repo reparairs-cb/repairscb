@@ -17,6 +17,8 @@ interface DataCardProps {
   badges?: {
     label: string;
     variant?: "default" | "secondary" | "destructive" | "outline";
+    icon?: JSX.Element;
+    className?: string;
   }[];
   fields: { label: string; value: string | number | undefined }[];
   onEdit?: () => void;
@@ -62,7 +64,12 @@ export function DataCard({
         {badges && badges.length > 0 && (
           <div className="flex flex-wrap gap-1 pt-2">
             {badges.map((badge, index) => (
-              <Badge key={index} variant={badge.variant || "default"}>
+              <Badge
+                key={index}
+                variant={badge.variant || "default"}
+                className={badge.className || "mx-2"}
+              >
+                {badge.icon && badge.icon}
                 {badge.label}
               </Badge>
             ))}

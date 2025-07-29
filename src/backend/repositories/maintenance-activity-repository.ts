@@ -47,12 +47,13 @@ class MaintenanceActivityRepository {
   ): Promise<{ id: string; created_at: Date }> {
     try {
       const result = await this.db.query(
-        "SELECT create_maintenance_activity($1, $2, $3, $4, $5)",
+        "SELECT create_maintenance_activity($1, $2, $3, $4, $5, $6)",
         [
           maintenanceActivity.maintenance_record_id,
           maintenanceActivity.activity_id,
           maintenanceActivity.status,
           maintenanceActivity.observations || null,
+          maintenanceActivity.priority || "no",
           maintenanceActivity.user_id,
         ]
       );
@@ -208,6 +209,9 @@ class MaintenanceActivityRepository {
           maintenanceActivity.activity_id || null,
           maintenanceActivity.status !== undefined
             ? maintenanceActivity.status
+            : null,
+          maintenanceActivity.priority !== undefined
+            ? maintenanceActivity.priority
             : null,
           maintenanceActivity.observations || null,
           maintenanceActivity.user_id,
@@ -434,6 +438,7 @@ class MaintenanceActivityRepository {
     processed_activities: { id: string; created_at: Date }[];
   }> {
     try {
+      console.log("Bulk update activities:", bulkUpdate);
       const result = await this.db.query(
         "SELECT bulk_update_maintenance_activities($1, $2, $3)",
         [
@@ -648,6 +653,7 @@ class MaintenanceActivityRepository {
       id: data.id,
       maintenance_record_id: data.maintenance_record_id,
       activity_id: data.activity_id,
+      priority: data.priority,
       status: data.status,
       observations: data.observations,
       created_at: new Date(data.created_at),

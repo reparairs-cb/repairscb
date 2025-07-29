@@ -765,10 +765,26 @@ export default function MaintenancePlanPage() {
     });
 
     try {
+      console.log("Datos recibidos en PUT:", data);
+      let planStages = allStages.filter(
+        (s) => s.maintenance_plan_id === data.maintenance_plan_id
+      );
+
       const uploadPayload = {
         ...data,
         days: data.days * selectedUnitTimeType.days,
         id: editingStage.id,
+        stage_index: editingStage.stage_index,
+        stages: planStages.map((stage) => ({
+          id: stage.id,
+          maintenance_type_id: stage.maintenance_type_id,
+          maintenance_plan_id: stage.maintenance_plan_id,
+          stage_index: stage.stage_index,
+          kilometers: stage.kilometers,
+          days: stage.days,
+          created_at: stage.created_at,
+          user_id: stage.user_id,
+        })),
       };
       const res = await fetch("/api/maintenance-stage", {
         method: "PUT",
@@ -783,21 +799,49 @@ export default function MaintenancePlanPage() {
         );
       }
 
-      const updatedStage = { ...editingStage, ...data, updated_at: new Date() };
+      const updatedStageData = (await res.json())
+        .data as MaintenanceStageBase & {
+        sorted_stages: string[];
+      };
 
-      setAllStages((prev) =>
-        prev.map((stage) =>
-          stage.id === editingStage.id ? updatedStage : stage
-        )
+      const updatedStage: MaintenanceStageBase = {
+        id: updatedStageData.id,
+        stage_index: updatedStageData.stage_index,
+        user_id: session.user.id,
+        maintenance_plan_id: data.maintenance_plan_id,
+        maintenance_type_id: data.maintenance_type_id,
+        kilometers: data.kilometers,
+        days: data.days * selectedUnitTimeType.days,
+        created_at: new Date(editingStage.created_at),
+      };
+
+      const sorted_stages = updatedStageData.sorted_stages;
+      planStages = planStages.map((stage) =>
+        stage.id === updatedStage.id ? updatedStage : stage
       );
+      sorted_stages.forEach((stageId, index) => {
+        const stage = planStages.find((s) => s.id === stageId);
+        if (stage && stage.stage_index !== index + 1) {
+          planStages = planStages.map((s) =>
+            s.id === stageId ? { ...s, stage_index: index + 1 } : s
+          );
+        }
+      });
+
+      setAllStages((prev) => [
+        ...prev.map((stage) => {
+          const updatedStage = planStages.find((s) => s.id === stage.id);
+          return updatedStage ? updatedStage : stage;
+        }),
+        updatedStage,
+      ]);
 
       setPlans((prev) =>
-        prev.map((plan) => ({
-          ...plan,
-          stages: plan.stages.map((stage) =>
-            stage.id === editingStage.id ? updatedStage : stage
-          ),
-        }))
+        prev.map((plan) =>
+          plan.id === data.maintenance_plan_id
+            ? { ...plan, stages: planStages }
+            : plan
+        )
       );
 
       setEditingStage(null);

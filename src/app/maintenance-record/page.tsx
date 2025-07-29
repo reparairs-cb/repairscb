@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DataCard } from "@/components/DataCard";
-import { Plus } from "lucide-react";
+import { Loader, Plus, Sheet } from "lucide-react";
 import type { MaintenanceRecordFormData } from "@/lib/schemas";
 import type { MaintenanceRecordWithDetails } from "@/types/maintenance-record";
-import type { EquipmentBase } from "@/types/equipment";
+import type {
+  EquipmentWithMaintenanceCounts,
+  MultiEquipmentWithRecords,
+  MultiEquipmentWithRecordsAndCounts,
+} from "@/types/equipment";
 import type {
   MaintenanceTypeBase,
   MaintenanceTypeWithChildren,
@@ -33,27 +37,74 @@ import {
 import { useSession } from "next-auth/react";
 import { toastVariables } from "@/components/ToastVariables";
 import { MaintenanceTypeSelect } from "@/components/MaintenanceTypeSelect";
-import { createLocalDate, dateToLocalISOString } from "@/lib/utils";
+import {
+  createLocalDate,
+  dateToLocalISOString,
+  formatDate,
+  statusOptions,
+  priorityOptions,
+  getPriorityLabel,
+  getStatusLabel,
+  getMaintenanceCount,
+} from "@/lib/utils";
+import { FETCH_SIZE } from "@/lib/const";
+import { PaginationComponent } from "@/components/Pagination";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  bgByCod,
+  StatusPriority,
+  StatusPriorityIcon,
+} from "@/components/StatusPriority";
+import { downloadMRExcel } from "@/lib/excel";
+import { Filter, FilterOption } from "@/components/Filter";
+import { Sorter, SorterOption } from "@/components/Sorter";
 
-interface SelectedSparePart {
-  spare_part_id: string;
-  spare_part: SparePartBase;
-  quantity: number;
-  unit_price?: number;
-}
-
-const statusOptions = [
-  { value: "pending", label: "Pendiente" },
-  { value: "in_progress", label: "En Progreso" },
-  { value: "completed", label: "Completado" },
+const optionsFilter: FilterOption[] = [
+  {
+    id: "byStatus",
+    label: "Estado",
+    options: statusOptions.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+    })),
+  },
+  {
+    id: "byPriority",
+    label: "Prioridad",
+    options: priorityOptions.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+    })),
+  },
 ];
 
-interface SelectedActivity {
-  activity_id: string;
-  activity: ActivityBase;
-  status: "pending" | "in_progress" | "completed";
-  observations?: string;
-}
+const optionsOrder: SorterOption[] = [
+  {
+    id: "by",
+    label: "Ordenar por",
+    options: [
+      {
+        label: "Fecha de creación",
+        value: "created_at",
+      },
+      { label: "Prioridad", value: "priority" },
+      { label: "Estado", value: "status" },
+    ],
+  },
+  {
+    id: "order",
+    label: "Orden",
+    options: [
+      { label: "Ascendente", value: "asc" },
+      { label: "Descendente", value: "desc" },
+    ],
+  },
+];
 
 const getMaintenanceTypesById = (
   id: string,
@@ -75,10 +126,14 @@ const getMaintenanceTypesById = (
 
 export default function MaintenanceRecordsPage() {
   const { data: session } = useSession();
-  const [maintenanceRecords, setMaintenanceRecords] = useState<
-    MaintenanceRecordWithDetails[]
-  >([]);
-  const [equipments, setEquipments] = useState<EquipmentBase[]>([]);
+  const [equipment, setEquipment] =
+    useState<MultiEquipmentWithRecordsAndCounts>({
+      total: 0,
+      limit: 0,
+      offset: 0,
+      pages: 0,
+      data: [],
+    });
   const [maintenanceTypes, setMaintenanceTypes] = useState<
     MaintenanceTypeWithChildren[]
   >([]);
@@ -88,19 +143,29 @@ export default function MaintenanceRecordsPage() {
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>("");
   const [selectedMileageRecord, setSelectedMileageRecord] =
     useState<MileageRecordBase | null>(null);
-  const [selectedSpareParts, setSelectedSpareParts] = useState<
-    SelectedSparePart[]
-  >([]);
-  const [selectedActivities, setSelectedActivities] = useState<
-    SelectedActivity[]
-  >([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [detailsEquipment, setDetailsEquipment] =
+    useState<EquipmentWithMaintenanceCounts | null>(null);
   const [editingItem, setEditingItem] =
     useState<MaintenanceRecordWithDetails | null>(null);
+  const [loadingMaintenanceRecords, setLoadingMaintenanceRecords] =
+    useState(false);
   const [noise, setNoise] = useState<NoiseType | null>({
     type: "loading",
     styleType: "page",
-    message: "Loading maintenance records...",
+    message: "Cargando equipos...",
+  });
+  const [loadingExcel, setLoadingExcel] = useState(false);
+  const [selectedFilters, setSelectedFilters] = useState<
+    Record<string, string[]>
+  >({});
+  const [selectedOrder, setSelectedOrder] = useState<{
+    by: string;
+    order: "asc" | "desc";
+  }>({
+    by: "priority",
+    order: "desc",
   });
 
   const {
@@ -142,108 +207,133 @@ export default function MaintenanceRecordsPage() {
     name: "activities",
   });
 
-  // Fetch all necessary data
+  // Fetch equipment with maintenance records
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchEquipment = async () => {
       setNoise({
         type: "loading",
         styleType: "page",
-        message: "Cargando datos de mantenimiento...",
+        message: "Cargando equipos...",
       });
 
       try {
-        const [
-          maintenanceRes,
-          equipmentRes,
-          maintenanceTypesRes,
-          activitiesRes,
-          sparePartsRes,
-          mileageRes,
-        ] = await Promise.all([
-          fetch("/api/maintenance-records"),
-          fetch("/api/equipments?limit=0"),
-          fetch("/api/maintenance-type"),
-          fetch("/api/activities"),
-          fetch("/api/spare-parts?limit=0"),
-          fetch("/api/mileage-record/by-date-range", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
+        // Fetch equipments with maintenance records
+        const res = await fetch("/api/equipments/with-records", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: session?.user?.id,
+            offset: 0,
+            limit: 0,
+            maintenanceLimit: FETCH_SIZE,
+            maintenanceOffset: 0,
+            sortBy: {
+              by: "priority",
+              order: "desc",
             },
-            body: JSON.stringify({
-              start_date: new Date(),
-              end_date: new Date(),
-            }),
           }),
-        ]);
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          console.error("Error fetching equipment:", err);
+          throw new Error("Failed to fetch equipment");
+        }
+
+        const data = (await res.json()).data as MultiEquipmentWithRecords;
+
+        console.log("Fetched equipment:", data.data);
+        setEquipment({
+          ...data,
+          data: data.data.map((item) => ({
+            ...item,
+            created_at: new Date(item.created_at),
+            updated_at: item.updated_at ? new Date(item.updated_at) : undefined,
+            maintenance_records: item.maintenance_records
+              ? {
+                  total: item.maintenance_records.total,
+                  limit: item.maintenance_records.limit,
+                  offset: item.maintenance_records.offset,
+                  pages: item.maintenance_records.pages,
+                  data: item.maintenance_records.data
+                    .map((record) => ({
+                      ...record,
+                      start_datetime: new Date(record.start_datetime),
+                      end_datetime: record.end_datetime
+                        ? new Date(record.end_datetime)
+                        : undefined,
+                      created_at: new Date(record.created_at),
+                      updated_at: record.updated_at
+                        ? new Date(record.updated_at)
+                        : undefined,
+                    }))
+                    .sort(
+                      (a, b) =>
+                        b.start_datetime.getTime() - a.start_datetime.getTime()
+                    ),
+                }
+              : undefined,
+            maintenance_count: getMaintenanceCount(
+              item.maintenance_records?.data || []
+            ),
+          })),
+        });
+        setNoise(null);
+      } catch (error) {
+        console.error("Error fetching equipment:", error);
+        setNoise({
+          type: "error",
+          styleType: "page",
+          message: "Error al cargar los equipos.",
+        });
+      }
+    };
+    fetchEquipment();
+  }, []);
+
+  // Fetch additional data for form
+  useEffect(() => {
+    const fetchAdditionalData = async () => {
+      try {
+        const [maintenanceTypesRes, activitiesRes, sparePartsRes, mileageRes] =
+          await Promise.all([
+            fetch("/api/maintenance-type"),
+            fetch("/api/activities"),
+            fetch("/api/spare-parts?limit=0"),
+            fetch("/api/mileage-record/by-date-range", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                start_date: new Date(),
+                end_date: new Date(),
+              }),
+            }),
+          ]);
 
         if (
-          !maintenanceRes.ok ||
-          !equipmentRes.ok ||
           !maintenanceTypesRes.ok ||
           !activitiesRes.ok ||
           !sparePartsRes.ok ||
           !mileageRes.ok
         ) {
-          if (!maintenanceRes.ok) {
-            const err = await maintenanceRes.json();
-            console.error(err);
-          }
-          if (!equipmentRes.ok) {
-            const err = await equipmentRes.json();
-            console.error(err);
-          }
-          if (!maintenanceTypesRes.ok) {
-            const err = await maintenanceTypesRes.json();
-            console.error(err);
-          }
-          if (!activitiesRes.ok) {
-            const err = await activitiesRes.json();
-            console.error(err);
-          }
-          if (!sparePartsRes.ok) {
-            const err = await sparePartsRes.json();
-            console.error(err);
-          }
-          if (!mileageRes.ok) {
-            const err = await mileageRes.json();
-            console.error(err);
-          }
-
-          throw new Error("Failed to fetch data");
+          throw new Error("Failed to fetch additional data");
         }
 
         const [
-          maintenanceData,
-          equipmentData,
           maintenanceTypesData,
           activitiesData,
           sparePartsData,
           mileageData,
         ] = await Promise.all([
-          maintenanceRes.json(),
-          equipmentRes.json(),
           maintenanceTypesRes.json(),
           activitiesRes.json(),
           sparePartsRes.json(),
           mileageRes.json(),
         ]);
-
-        setMaintenanceRecords(
-          maintenanceData.data.data.map(
-            (item: MaintenanceRecordWithDetails) => ({
-              ...item,
-              start_datetime: new Date(item.start_datetime),
-              end_datetime: item.end_datetime
-                ? new Date(item.end_datetime)
-                : undefined,
-              created_at: new Date(item.created_at),
-              updated_at: item.updated_at
-                ? new Date(item.updated_at)
-                : undefined,
-            })
-          )
-        );
 
         const processHierarchicalData = (
           items: MaintenanceTypeWithChildren[]
@@ -257,12 +347,10 @@ export default function MaintenanceRecordsPage() {
           }));
         };
 
-        setEquipments(equipmentData.data.data);
         const processedMaintenanceTypes = processHierarchicalData(
           maintenanceTypesData.data
         );
         setMaintenanceTypes(processedMaintenanceTypes);
-
         setActivities(activitiesData.data.data);
         setSpareParts(sparePartsData.data.data);
         setMileageRecords(
@@ -276,29 +364,115 @@ export default function MaintenanceRecordsPage() {
             }
           )
         );
-
-        console.log("Fetched data successfully:", {
-          maintenanceRecords: maintenanceData.data.data,
-          equipments: equipmentData.data.data,
-          maintenanceTypes: maintenanceTypesData.data,
-          activities: activitiesData.data.data,
-          spareParts: sparePartsData.data.data,
-          mileageRecords: mileageData.data.data,
-        });
-
-        setNoise(null);
       } catch (error) {
-        console.error("Error fetching data:", error);
-        setNoise({
-          type: "error",
-          styleType: "page",
-          message: "Error al cargar los datos.",
-        });
+        console.error("Error fetching additional data:", error);
       }
     };
 
-    fetchData();
+    fetchAdditionalData();
   }, []);
+
+  // Función para cargar más datos de mantenimiento cuando cambie de página
+  const handlePageChange = useCallback(
+    async (page: number) => {
+      const selectedMaintenance = equipment.data.find(
+        (item) => item.id === detailsEquipment?.id
+      )?.maintenance_records;
+
+      if (!selectedMaintenance) return;
+
+      const newOffset = (page - 1) * selectedMaintenance.limit;
+
+      // Verificar si ya tenemos estos datos
+      const totalLoadedRecords = selectedMaintenance.data.length;
+      const recordsNeeded =
+        newOffset + selectedMaintenance.limit > selectedMaintenance.total
+          ? selectedMaintenance.total
+          : newOffset + selectedMaintenance.limit;
+
+      if (totalLoadedRecords >= recordsNeeded) {
+        return;
+      }
+
+      setLoadingMaintenanceRecords(true);
+      setNoise(null);
+
+      try {
+        const res = await fetch(`/api/maintenance-records/by-equipment`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            equipment_id: detailsEquipment?.id,
+            limit: selectedMaintenance.limit,
+            offset: newOffset,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Error ${res.status}: ${res.statusText}`);
+        }
+
+        const newData = (await res.json()).data;
+
+        newData.data = newData.data.map(
+          (record: MaintenanceRecordWithDetails) => ({
+            ...record,
+            start_datetime: new Date(record.start_datetime),
+            end_datetime: record.end_datetime
+              ? new Date(record.end_datetime)
+              : undefined,
+            created_at: new Date(record.created_at),
+            updated_at: record.updated_at
+              ? new Date(record.updated_at)
+              : undefined,
+          })
+        );
+
+        if (newData.data.length > 0) {
+          setEquipment((prevEquipment) => ({
+            ...prevEquipment,
+            data: prevEquipment.data.map((eq) => {
+              if (eq.id === detailsEquipment?.id) {
+                return {
+                  ...eq,
+                  maintenance_records: {
+                    ...eq.maintenance_records!,
+                    data: [
+                      ...eq.maintenance_records!.data,
+                      ...newData.data.filter(
+                        (newRecord: MaintenanceRecordWithDetails) =>
+                          !eq.maintenance_records!.data.some(
+                            (existingRecord) =>
+                              existingRecord.id === newRecord.id
+                          )
+                      ),
+                    ].sort(
+                      (a, b) =>
+                        b.start_datetime.getTime() - a.start_datetime.getTime()
+                    ),
+                    offset: newData.offset || 0,
+                  },
+                };
+              }
+              return eq;
+            }),
+          }));
+        }
+      } catch (err) {
+        setNoise({
+          type: "error",
+          styleType: "modal",
+          message: "Error al cargar los registros de mantenimiento.",
+        });
+        console.error("Error fetching maintenance records:", err);
+      } finally {
+        setLoadingMaintenanceRecords(false);
+      }
+    },
+    [detailsEquipment?.id, equipment.data]
+  );
 
   // Fetch mileage records when equipment is selected
   useEffect(() => {
@@ -357,6 +531,7 @@ export default function MaintenanceRecordsPage() {
           activity_id: act.activity_id,
           status: act.status,
           observations: act.observations || "",
+          priority: act.priority || "no",
         })),
         spare_parts: data.spare_parts.map((sp) => ({
           spare_part_id: sp.spare_part_id,
@@ -381,92 +556,63 @@ export default function MaintenanceRecordsPage() {
 
       const newRecord = (await res.json()).data as MaintenanceRecordWithDetails;
 
-      if (selectedMileageRecord) {
-        setMileageRecords((prev) =>
-          prev.map((record) =>
-            record.id === selectedMileageRecord.id
-              ? {
-                  ...record,
-                  kilometers: data.mileage,
-                  updated_at: new Date(),
-                }
-              : record
-          )
-        );
-      } else {
-        const newMileageRecord = newRecord.mileage_info;
-
-        if (!newMileageRecord) {
-          throw new Error(
-            "No mileage record created for new maintenance record"
-          );
-        }
-
-        setMileageRecords((prev) => [
+      // Update equipment state with new maintenance record
+      setEquipment((prev) => {
+        return {
           ...prev,
-          {
-            equipment_id: data.equipment_id,
-            kilometers: newMileageRecord.kilometers,
-            record_date: new Date(newMileageRecord.record_date),
-            id: newMileageRecord.id,
-            created_at: newMileageRecord.record_date,
-          },
-        ]);
-      }
+          data: prev.data.map((item) => {
+            if (item.id === data.equipment_id) {
+              const newMaintenanceRecord: MaintenanceRecordWithDetails = {
+                ...newRecord,
+                start_datetime: new Date(data.start_datetime),
+                end_datetime: data.end_datetime
+                  ? new Date(data.end_datetime)
+                  : undefined,
+                created_at: new Date(),
+                equipment: item,
+                maintenance_type: getMaintenanceTypesById(
+                  data.maintenance_type_id,
+                  maintenanceTypes
+                ),
+              };
 
-      console.log("New maintenance record created:", newRecord);
+              return {
+                ...item,
+                maintenance_records: item.maintenance_records
+                  ? {
+                      ...item.maintenance_records,
+                      data: [
+                        newMaintenanceRecord,
+                        ...item.maintenance_records.data,
+                      ].sort(
+                        (a, b) =>
+                          b.start_datetime.getTime() -
+                          a.start_datetime.getTime()
+                      ),
+                      total: item.maintenance_records.total + 1,
+                    }
+                  : {
+                      total: 1,
+                      limit: FETCH_SIZE,
+                      offset: 0,
+                      pages: 1,
+                      data: [newMaintenanceRecord],
+                    },
+                maintenance_count: getMaintenanceCount(
+                  item.maintenance_records?.data
+                    ? item.maintenance_records.data.concat(newMaintenanceRecord)
+                    : [newMaintenanceRecord]
+                ),
+              };
+            }
+            return item;
+          }),
+        };
+      });
 
       setNoise(null);
       toastVariables.success("Registro de mantenimiento creado exitosamente.");
-      setMaintenanceRecords((prev) => [
-        ...prev,
-        {
-          ...data,
-          id: newRecord.id,
-          start_datetime: new Date(data.start_datetime),
-          end_datetime: data.end_datetime
-            ? new Date(data.end_datetime)
-            : undefined,
-          created_at: new Date(),
-          updated_at: new Date(),
-          equipment: equipments.find(
-            (eq) => eq.id === data.equipment_id
-          ) as EquipmentBase,
-          maintenance_type: getMaintenanceTypesById(
-            data.maintenance_type_id,
-            maintenanceTypes
-          ),
-          mileage_record_id: newRecord.mileage_record_id,
-          mileage_info: {
-            kilometers: data.mileage,
-            record_date: newRecord.mileage_info?.record_date,
-            id: newRecord.mileage_record_id,
-          },
-          spare_parts: selectedSpareParts.map((sp) => ({
-            id: crypto.randomUUID(),
-            spare_part_id: sp.spare_part_id,
-            quantity: sp.quantity,
-            unit_price: sp.unit_price,
-            spare_part: spareParts.find(
-              (spare) => spare.id === sp.spare_part_id
-            ) as SparePartBase,
-            maintenance_record_id: newRecord.id,
-            created_at: new Date(),
-          })),
-          activities: selectedActivities.map((act, index) => ({
-            id: newRecord.activities?.[index].id || crypto.randomUUID(),
-            activity_id: act.activity_id,
-            observations: act.observations,
-            activity: activities.find(
-              (activity) => activity.id === act.activity_id
-            ) as ActivityBase,
-            maintenance_record_id: newRecord.id, // Simulate new ID for demo purposes
-            created_at: new Date(),
-            status: act.status,
-          })),
-          user_id: session.user.id,
-        } as MaintenanceRecordWithDetails,
-      ]);
+      reset();
       setIsModalOpen(false);
     } catch (error) {
       setNoise(null);
@@ -489,6 +635,7 @@ export default function MaintenanceRecordsPage() {
         toastVariables.error(
           "Necesita seleccionar los repuestos para el mantenimiento."
         );
+        setNoise(null);
         return;
       }
 
@@ -496,6 +643,7 @@ export default function MaintenanceRecordsPage() {
         toastVariables.error(
           "Necesita seleccionar las actividades para el mantenimiento."
         );
+        setNoise(null);
         return;
       }
 
@@ -517,24 +665,11 @@ export default function MaintenanceRecordsPage() {
           id: act.id,
           activity_id: act.activity_id,
           status: act.status,
+          priority: act.priority || "no",
           observations: act.observations || "",
         })),
-        original_spare_parts: editingItem.spare_parts
-          ? editingItem.spare_parts.map((sp) => ({
-              id: sp.id,
-              spare_part_id: sp.spare_part_id,
-              quantity: sp.quantity,
-              unit_price: sp.unit_price,
-            }))
-          : [],
-        original_activities: editingItem.activities
-          ? editingItem.activities.map((act) => ({
-              id: act.id,
-              activity_id: act.activity_id,
-              status: act.status,
-              observations: act.observations || "",
-            }))
-          : [],
+        original_spare_parts: editingItem.spare_parts || [],
+        original_activities: editingItem.activities || [],
       };
 
       const res = await fetch(`/api/maintenance-records`, {
@@ -551,57 +686,117 @@ export default function MaintenanceRecordsPage() {
         throw new Error("Failed to update maintenance record");
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const updatedRecord = (await res.json())
         .data as MaintenanceRecordWithDetails;
 
-      setMaintenanceRecords((prev) =>
-        prev.map((item) =>
-          item.id === editingItem.id
-            ? {
-                ...item,
-                start_datetime: new Date(data.start_datetime),
-                end_datetime: data.end_datetime
-                  ? new Date(data.end_datetime)
-                  : undefined,
-                maintenance_type_id: data.maintenance_type_id,
-                observations: data.observations || "",
-                mileage_info: {
-                  kilometers: data.mileage,
-                  record_date: item.mileage_info?.record_date || new Date(),
-                  id: item.mileage_info?.id || crypto.randomUUID(),
-                },
-                spare_parts: data.spare_parts.map((sp) => ({
-                  id: sp.id || crypto.randomUUID(),
-                  spare_part_id: sp.spare_part_id,
-                  quantity: sp.quantity,
-                  unit_price: sp.unit_price,
-                  spare_part: spareParts.find(
-                    (spare) => spare.id === sp.spare_part_id
-                  ) as SparePartBase,
-                  maintenance_record_id: item.id,
-                  created_at: new Date(),
-                })),
-                activities: data.activities.map((act) => ({
-                  id: act.id || crypto.randomUUID(),
-                  activity_id: act.activity_id,
-                  status: act.status,
-                  observations: act.observations || "",
-                  activity: activities.find(
-                    (activity) => activity.id === act.activity_id
-                  ) as ActivityBase,
-                  maintenance_record_id: item.id, // Simulate new ID for demo purposes
-                  created_at: new Date(),
-                })),
-              }
-            : item
-        )
-      );
+      if (!updatedRecord) {
+        throw new Error("No se pudo actualizar el registro de mantenimiento");
+      }
+
+      console.log("Updated record:", updatedRecord);
+
+      const updatedMaintenance = {
+        ...updatedRecord,
+        start_datetime: new Date(data.start_datetime),
+        end_datetime: data.end_datetime
+          ? new Date(data.end_datetime)
+          : undefined,
+        maintenance_type_id: data.maintenance_type_id,
+        observations: data.observations || "",
+        mileage_info: {
+          kilometers: data.mileage,
+          record_date: updatedRecord.mileage_info?.record_date || new Date(),
+          id: updatedRecord.mileage_info?.id || crypto.randomUUID(),
+        },
+        spare_parts: updatedRecord.spare_parts
+          ? updatedRecord.spare_parts.map((sp) => ({
+              id: sp.id || crypto.randomUUID(),
+              spare_part_id: sp.spare_part_id,
+              quantity: sp.quantity,
+              unit_price: sp.unit_price,
+              spare_part: spareParts.find(
+                (spare) => spare.id === sp.spare_part_id
+              ) as SparePartBase,
+              maintenance_record_id: updatedRecord.id,
+              created_at: new Date(sp.created_at) || new Date(),
+            }))
+          : [],
+        activities: updatedRecord.activities
+          ? updatedRecord.activities.map((act) => ({
+              id: act.id || crypto.randomUUID(),
+              activity_id: act.activity_id,
+              status: act.status,
+              priority: act.priority || "no",
+              observations: act.observations || "",
+              activity: activities.find(
+                (activity) => activity.id === act.activity_id
+              ) as ActivityBase,
+              maintenance_record_id: updatedRecord.id,
+              created_at: new Date(act.created_at) || new Date(),
+            }))
+          : [],
+        updated_at: new Date(),
+      };
+
+      // Update equipment state with updated maintenance record
+      setEquipment((prev) => ({
+        ...prev,
+        data: prev.data.map((item) => {
+          if (
+            item.maintenance_records?.data.some(
+              (record) => record.id === editingItem.id
+            )
+          ) {
+            console.log("Updating item:", item);
+            return {
+              ...item,
+              maintenance_count: getMaintenanceCount(
+                item.maintenance_records?.data.map((record) =>
+                  record.id === editingItem.id ? updatedMaintenance : record
+                ) || []
+              ),
+              maintenance_records: {
+                ...item.maintenance_records,
+                data: item.maintenance_records.data
+                  .map((record) =>
+                    record.id === editingItem.id ? updatedMaintenance : record
+                  )
+                  .sort(
+                    (a, b) =>
+                      b.start_datetime.getTime() - a.start_datetime.getTime()
+                  ),
+              },
+            };
+          }
+          return item;
+        }),
+      }));
+
+      setDetailsEquipment((prev) => {
+        if (!prev || !prev.maintenance_records?.total) return null;
+
+        return {
+          ...prev,
+          maintenance_records: {
+            ...prev.maintenance_records,
+            data: prev.maintenance_records?.data.map((record) =>
+              record.id === editingItem.id ? updatedMaintenance : record
+            ),
+          },
+          maintenance_count: getMaintenanceCount(
+            prev.maintenance_records?.data.map((record) =>
+              record.id === editingItem.id ? updatedMaintenance : record
+            ) || []
+          ),
+        };
+      });
 
       setNoise(null);
       toastVariables.success(
         "Registro de mantenimiento actualizado exitosamente."
       );
+      setIsModalOpen(false);
+      setEditingItem(null);
     } catch (error) {
       setNoise(null);
       console.error("Error updating maintenance record:", error);
@@ -609,7 +804,6 @@ export default function MaintenanceRecordsPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/maintenance-records`, {
@@ -626,7 +820,49 @@ export default function MaintenanceRecordsPage() {
         throw new Error("Failed to delete maintenance record");
       }
 
-      setMaintenanceRecords((prev) => prev.filter((item) => item.id !== id));
+      // Update equipment state by removing the deleted maintenance record
+      setEquipment((prev) => ({
+        ...prev,
+        data: prev.data.map((item) => {
+          if (
+            item.maintenance_records?.data.some((record) => record.id === id)
+          ) {
+            return {
+              ...item,
+              maintenance_records: {
+                ...item.maintenance_records,
+                data: item.maintenance_records.data.filter(
+                  (record) => record.id !== id
+                ),
+                total: item.maintenance_records.total - 1,
+              },
+              maintenance_count: getMaintenanceCount(
+                item.maintenance_records.data.filter(
+                  (record) => record.id !== id
+                )
+              ),
+            };
+          }
+          return item;
+        }),
+      }));
+
+      setDetailsEquipment((prev) => {
+        if (!prev || !prev.maintenance_records?.total) return null;
+        return {
+          ...prev,
+          maintenance_records: {
+            ...prev.maintenance_records,
+            data: prev.maintenance_records.data.filter(
+              (record) => record.id !== id
+            ),
+          },
+          maintenance_count: getMaintenanceCount(
+            prev.maintenance_records.data.filter((record) => record.id !== id)
+          ),
+        };
+      });
+
       toastVariables.success(
         "Registro de mantenimiento eliminado exitosamente."
       );
@@ -636,10 +872,74 @@ export default function MaintenanceRecordsPage() {
     }
   };
 
+  const handleFilterSelect = async (
+    selectedFilters: Record<string, string[]>
+  ) => {
+    console.log("Selected filters:", selectedFilters);
+    const resEq = await fetch("/api/equipments/with-records", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        limit: 0,
+        maintenanceLimit: FETCH_SIZE,
+        maintenanceOffset: 0,
+        ...selectedFilters,
+        sortBy: selectedOrder,
+      }),
+    });
+
+    if (!resEq.ok) {
+      const err = resEq.json();
+      console.error("Error fetching equipment:", err);
+      toastVariables.error("Error al filtrar equipos.");
+      return;
+    }
+
+    const data = (await resEq.json())
+      .data as MultiEquipmentWithRecordsAndCounts;
+
+    setSelectedFilters(selectedFilters);
+    setEquipment({
+      ...data,
+      data: data.data.map((item) => ({
+        ...item,
+        created_at: new Date(item.created_at),
+        updated_at: item.updated_at ? new Date(item.updated_at) : undefined,
+        maintenance_records: item.maintenance_records
+          ? {
+              total: item.maintenance_records.total,
+              limit: item.maintenance_records.limit,
+              offset: item.maintenance_records.offset,
+              pages: item.maintenance_records.pages,
+              data: item.maintenance_records.data
+                .map((record) => ({
+                  ...record,
+                  start_datetime: new Date(record.start_datetime),
+                  end_datetime: record.end_datetime
+                    ? new Date(record.end_datetime)
+                    : undefined,
+                  created_at: new Date(record.created_at),
+                  updated_at: record.updated_at
+                    ? new Date(record.updated_at)
+                    : undefined,
+                }))
+                .sort(
+                  (a, b) =>
+                    b.start_datetime.getTime() - a.start_datetime.getTime()
+                ),
+            }
+          : undefined,
+        maintenance_count: getMaintenanceCount(
+          item.maintenance_records?.data || []
+        ),
+      })),
+    });
+  };
+
   const openCreateModal = () => {
     setEditingItem(null);
-    setSelectedSpareParts([]);
-    setSelectedActivities([]);
     setSelectedEquipmentId("");
     reset();
     setIsModalOpen(true);
@@ -648,13 +948,10 @@ export default function MaintenanceRecordsPage() {
   const handleCancel = () => {
     setIsModalOpen(false);
     setEditingItem(null);
-    setSelectedSpareParts([]);
-    setSelectedActivities([]);
     setSelectedEquipmentId("");
     reset();
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openEditModal = (item: MaintenanceRecordWithDetails) => {
     setEditingItem(item);
     console.log("Editing item:", item);
@@ -667,6 +964,7 @@ export default function MaintenanceRecordsPage() {
     setValue(
       "spare_parts",
       item.spare_parts?.map((sp) => ({
+        id: sp.id,
         spare_part_id: sp.spare_part_id,
         quantity: sp.quantity,
         unit_price: sp.unit_price,
@@ -675,9 +973,11 @@ export default function MaintenanceRecordsPage() {
     setValue(
       "activities",
       item.activities?.map((act) => ({
+        id: act.id,
         activity_id: act.activity_id,
         status: act.status,
         observations: act.observations || "",
+        priority: act.priority || "no",
       })) || []
     );
     setSelectedMileageRecord(
@@ -689,7 +989,13 @@ export default function MaintenanceRecordsPage() {
               item.start_datetime.toDateString())
       ) || null
     );
+    console.log("mileage record for editing:", mileageRecords);
     setIsModalOpen(true);
+  };
+
+  const onDetailModal = (item: EquipmentWithMaintenanceCounts) => {
+    setDetailsEquipment(item);
+    setIsDetailsModalOpen(true);
   };
 
   const addSparePart = () => {
@@ -705,6 +1011,87 @@ export default function MaintenanceRecordsPage() {
       activity_id: "",
       status: "pending",
       observations: "",
+      priority: "no",
+    });
+  };
+
+  const handleExportExcel = async () => {
+    setLoadingExcel(true);
+    try {
+      await downloadMRExcel();
+      toastVariables.success("Datos exportados a Excel exitosamente.");
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toastVariables.error("Error al exportar a Excel.");
+    } finally {
+      setLoadingExcel(false);
+    }
+  };
+
+  const handleSelectOrder = async (selectedOption: Record<string, string>) => {
+    console.log("Selected order:", selectedOption);
+    const resEq = await fetch("/api/equipments/with-records", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        limit: 0,
+        maintenanceLimit: FETCH_SIZE,
+        maintenanceOffset: 0,
+        ...selectedFilters,
+        sortBy: selectedOption,
+      }),
+    });
+
+    if (!resEq.ok) {
+      const err = resEq.json();
+      console.error("Error fetching equipment:", err);
+      toastVariables.error("Error al ordenar equipos.");
+      return;
+    }
+
+    const data = (await resEq.json())
+      .data as MultiEquipmentWithRecordsAndCounts;
+
+    setSelectedOrder({
+      by: selectedOption.by,
+      order: selectedOption.order as "asc" | "desc",
+    });
+    setEquipment({
+      ...data,
+      data: data.data.map((item) => ({
+        ...item,
+        created_at: new Date(item.created_at),
+        updated_at: item.updated_at ? new Date(item.updated_at) : undefined,
+        maintenance_records: item.maintenance_records
+          ? {
+              total: item.maintenance_records.total,
+              limit: item.maintenance_records.limit,
+              offset: item.maintenance_records.offset,
+              pages: item.maintenance_records.pages,
+              data: item.maintenance_records.data
+                .map((record) => ({
+                  ...record,
+                  start_datetime: new Date(record.start_datetime),
+                  end_datetime: record.end_datetime
+                    ? new Date(record.end_datetime)
+                    : undefined,
+                  created_at: new Date(record.created_at),
+                  updated_at: record.updated_at
+                    ? new Date(record.updated_at)
+                    : undefined,
+                }))
+                .sort(
+                  (a, b) =>
+                    b.start_datetime.getTime() - a.start_datetime.getTime()
+                ),
+            }
+          : undefined,
+        maintenance_count: getMaintenanceCount(
+          item.maintenance_records?.data || []
+        ),
+      })),
     });
   };
 
@@ -714,7 +1101,6 @@ export default function MaintenanceRecordsPage() {
     } else {
       await handleCreate(data);
     }
-    setIsModalOpen(false);
   };
 
   if (noise && noise.styleType === "page") {
@@ -724,18 +1110,112 @@ export default function MaintenanceRecordsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {noise && <Noise noise={noise} />}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Gestión de Mantenimiento</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold">
+          Gestión de Mantenimiento por Equipos
+        </h1>
         <Button onClick={openCreateModal}>
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Mantenimiento
         </Button>
       </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-start md:justify-between gap-2  mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-start md:justify-between gap-2">
+          <Filter
+            options={optionsFilter}
+            selectedFilters={selectedFilters}
+            onFilterSelect={handleFilterSelect}
+          />
+          <Sorter
+            options={optionsOrder}
+            selectedOption={selectedOrder}
+            onSelect={handleSelectOrder}
+          />
+        </div>
+        <Button onClick={handleExportExcel} variant="outline" className="ml-4">
+          {loadingExcel ? (
+            <Loader className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Sheet className="h-4 w-4 mr-2" />
+          )}
+          Exportar a Excel
+        </Button>
+      </div>
 
-      {maintenanceRecords.length === 0 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {equipment.data.map((item) => {
+          const badges: {
+            label: string;
+            icon?: JSX.Element;
+            variant?: "default" | "secondary" | "destructive" | "outline";
+            className?: string;
+          }[] = [
+            { label: item.code, variant: "secondary" },
+            {
+              label: `${item.maintenance_count.total}`,
+              icon: <StatusPriorityIcon cod="total" />,
+            },
+          ];
+
+          for (const status of Object.keys(item.maintenance_count.status)) {
+            const count =
+              item.maintenance_count.status[
+                status as keyof typeof item.maintenance_count.status
+              ];
+            if (count > 0) {
+              badges.push({
+                label: `${count}`,
+                className: bgByCod[status] || "bg-gray-500",
+                icon: <StatusPriorityIcon cod={status} />,
+              });
+            }
+          }
+
+          for (const priority of Object.keys(item.maintenance_count.priority)) {
+            const count =
+              item.maintenance_count.priority[
+                priority as keyof typeof item.maintenance_count.priority
+              ];
+            if (count > 0) {
+              badges.push({
+                label: `${count}`,
+                className: bgByCod[priority] || "bg-gray-500",
+                icon: <StatusPriorityIcon cod={priority} />,
+              });
+            }
+          }
+
+          return (
+            <DataCard
+              key={item.id}
+              title={item.license_plate}
+              subtitle={item.type}
+              badges={badges}
+              fields={[]}
+              onDetails={() => {
+                onDetailModal(item);
+              }}
+            />
+          );
+        })}
+      </div>
+
+      <PaginationComponent
+        paginationData={{
+          ...equipment,
+          start: 0,
+          end: equipment.data.length,
+        }}
+        onPageChange={async (offset) => {
+          return await handlePageChange(Math.floor(offset / FETCH_SIZE) + 1);
+        }}
+        loading={false}
+      />
+
+      {equipment.data.length === 0 && !noise && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">
-            No hay registros de mantenimiento disponibles.
+            No hay equipos con registros de mantenimiento
           </p>
           <p className="text-gray-400 text-sm mt-2">
             Haz clic en &quot;Nuevo mantenimiento&quot; para agregar tu primer
@@ -744,51 +1224,9 @@ export default function MaintenanceRecordsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {maintenanceRecords
-          .sort(
-            (a, b) => b.start_datetime.getTime() - a.start_datetime.getTime()
-          )
-          .map((item) => (
-            <DataCard
-              key={item.id}
-              title={`${
-                item.equipment?.type
-              } - ${item.start_datetime.toLocaleDateString()}`}
-              subtitle={item.maintenance_type?.type}
-              badges={[
-                {
-                  label: item.equipment?.license_plate || "N/A",
-                  variant: "outline",
-                },
-              ]}
-              fields={[
-                {
-                  label: "Equipo",
-                  value: `${item.equipment?.type} (${item.equipment?.code})`,
-                },
-                { label: "Tipo", value: item.maintenance_type?.type },
-                {
-                  label: "Kilometraje",
-                  value: `${item.mileage_info?.kilometers || "N/A"} km`,
-                },
-                {
-                  label: "Descripción",
-                  value: item.observations || "N/A",
-                },
-              ]}
-              onEdit={() => {
-                openEditModal(item);
-              }}
-              onDelete={() => {
-                handleDelete(item.id);
-              }}
-            />
-          ))}
-      </div>
-
+      {/* Modal para crear/editar mantenimiento */}
       {isModalOpen && (
-        <Modal onClose={handleCancel}>
+        <Modal customZIndex={2000} onClose={handleCancel}>
           <div className="p-6 max-h-[90vh] max-w-[90vw] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
               {editingItem
@@ -815,10 +1253,9 @@ export default function MaintenanceRecordsPage() {
                           <SelectValue placeholder="Seleccionar equipo" />
                         </SelectTrigger>
                         <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                          {equipments.map((equipment) => (
-                            <SelectItem key={equipment.id} value={equipment.id}>
-                              {equipment.type} - {equipment.code} (
-                              {equipment.license_plate})
+                          {equipment.data.map((eq) => (
+                            <SelectItem key={eq.id} value={eq.id}>
+                              {eq.type} - {eq.code} ({eq.license_plate})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -998,11 +1435,6 @@ export default function MaintenanceRecordsPage() {
                                   render={({ field }) => (
                                     <Select
                                       onValueChange={(value) => {
-                                        const selectedActivity =
-                                          activities.find(
-                                            (a) => a.id === value
-                                          );
-                                        if (!selectedActivity) return;
                                         field.onChange(value);
                                       }}
                                       value={field.value}
@@ -1055,6 +1487,34 @@ export default function MaintenanceRecordsPage() {
                             </div>
 
                             <div className="flex flex-col gap-2 w-full">
+                              <Label className="flex-1">Prioridad</Label>
+                              <Controller
+                                name={`activities.${index}.priority`}
+                                control={control}
+                                render={({ field }) => (
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Seleccionar prioridad" />
+                                    </SelectTrigger>
+                                    <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
+                                      {priorityOptions.map((option) => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              />
+                            </div>
+
+                            <div className="flex flex-col gap-2 w-full">
                               <Label className="flex-1">Observaciones</Label>
                               <Controller
                                 name={`activities.${index}.observations`}
@@ -1073,12 +1533,12 @@ export default function MaintenanceRecordsPage() {
                             </div>
                             {errors.activities?.[index]?.activity_id && (
                               <p className="text-red-500 text-sm mt-1">
-                                {errors.activities[index].activity_id.message}
+                                {errors.activities[index].activity_id?.message}
                               </p>
                             )}
                             {errors.activities?.[index]?.status && (
                               <p className="text-red-500 text-sm mt-1">
-                                {errors.activities[index].status.message}
+                                {errors.activities[index].status?.message}
                               </p>
                             )}
                           </div>
@@ -1197,12 +1657,12 @@ export default function MaintenanceRecordsPage() {
                           </div>
                           {errors.spare_parts?.[index]?.quantity && (
                             <p className="text-red-500 text-sm mt-1">
-                              {errors.spare_parts[index].quantity.message}
+                              {errors.spare_parts[index].quantity?.message}
                             </p>
                           )}
                           {errors.spare_parts?.[index]?.spare_part_id && (
                             <p className="text-red-500 text-sm mt-1">
-                              {errors.spare_parts[index].spare_part_id.message}
+                              {errors.spare_parts[index].spare_part_id?.message}
                             </p>
                           )}
                         </div>
@@ -1223,6 +1683,319 @@ export default function MaintenanceRecordsPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal para ver detalles de mantenimientos del equipo */}
+      {isDetailsModalOpen && detailsEquipment && (
+        <Modal customZIndex={1000} onClose={() => setIsDetailsModalOpen(false)}>
+          <div className="p-6 max-h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold mb-4">
+              Mantenimientos - {detailsEquipment.type} (
+              {detailsEquipment.license_plate})
+            </h2>
+            <div className="space-y-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {detailsEquipment.maintenance_count.total}
+                  </p>
+                  <p className="text-sm text-gray-600">Total</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {detailsEquipment.maintenance_count.status.pending}
+                  </p>
+                  <p className="text-sm text-gray-600">Pendientes</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-600">
+                    {detailsEquipment.maintenance_count.status.in_progress}
+                  </p>
+                  <p className="text-sm text-gray-600">En Progreso</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">
+                    {detailsEquipment.maintenance_count.status.completed}
+                  </p>
+                  <p className="text-sm text-gray-600">Completados</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {detailsEquipment.maintenance_count.priority.immediate}
+                  </p>
+                  <p className="text-sm text-gray-600">Pr. Inmediata</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-600">
+                    {detailsEquipment.maintenance_count.priority.low}
+                  </p>
+                  <p className="text-sm text-gray-600">Pr. Baja</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-600">
+                    {detailsEquipment.maintenance_count.priority.medium}
+                  </p>
+                  <p className="text-sm text-gray-600">Pr. Media</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">
+                    {detailsEquipment.maintenance_count.priority.high}
+                  </p>
+                  <p className="text-sm text-gray-600">Pr. Alta</p>
+                </div>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-semibold mt-6 mb-4">
+              Lista de Mantenimientos
+            </h3>
+
+            {loadingMaintenanceRecords && (
+              <div className="text-center py-4">
+                <Noise
+                  noise={{
+                    type: "loading",
+                    styleType: "modal",
+                    message: "Cargando más registros...",
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {detailsEquipment.maintenance_records?.data.map((maintenance) => {
+                const pendingAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.status === "pending"
+                  ).length || 0;
+                const inProgressAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.status === "in_progress"
+                  ).length || 0;
+                const completedAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.status === "completed"
+                  ).length || 0;
+                const noPriorityAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.priority === "no"
+                  ).length || 0;
+                const lowAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.priority === "low"
+                  ).length || 0;
+                const mediumAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.priority === "medium"
+                  ).length || 0;
+                const highAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.priority === "high"
+                  ).length || 0;
+                const immediateAct =
+                  maintenance.activities?.filter(
+                    (activity) => activity.priority === "immediate"
+                  ).length || 0;
+                const totalAct = maintenance.activities?.length || 0;
+
+                return (
+                  <div
+                    key={maintenance.id}
+                    className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-lg">
+                          {maintenance.maintenance_type?.type ||
+                            "Tipo no especificado"}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {formatDate(maintenance.start_datetime)}
+                          {maintenance.end_datetime && (
+                            <span>
+                              {" "}
+                              - {formatDate(maintenance.end_datetime)}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditModal(maintenance)}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(maintenance.id)}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <p className="text-sm">
+                          <strong>Kilometraje:</strong>{" "}
+                          {maintenance.mileage_info?.kilometers || "N/A"} km
+                        </p>
+                        <p className="text-sm">
+                          <strong>Observaciones:</strong>{" "}
+                          {maintenance.observations || "Sin observaciones"}
+                        </p>
+                      </div>
+                      <div>
+                        {maintenance.activities &&
+                          maintenance.activities.length > 0 && (
+                            <Accordion type="single" collapsible>
+                              <AccordionItem value="item-1">
+                                <AccordionTrigger className="hover:no-underline">
+                                  <div className="flex items-center justify-between flex-wrap">
+                                    <span className="font-medium">
+                                      Actividades
+                                    </span>
+                                    <StatusPriority
+                                      count={totalAct}
+                                      cod="total"
+                                    />
+                                    {completedAct > 0 && (
+                                      <StatusPriority
+                                        count={completedAct}
+                                        cod="completed"
+                                      />
+                                    )}
+                                    {inProgressAct > 0 && (
+                                      <StatusPriority
+                                        count={inProgressAct}
+                                        cod="in_progress"
+                                      />
+                                    )}
+                                    {pendingAct > 0 && (
+                                      <StatusPriority
+                                        count={pendingAct}
+                                        cod="pending"
+                                      />
+                                    )}
+                                    {immediateAct > 0 && (
+                                      <StatusPriority
+                                        count={immediateAct}
+                                        cod="immediate"
+                                      />
+                                    )}
+                                    {highAct > 0 && (
+                                      <StatusPriority
+                                        count={highAct}
+                                        cod="high"
+                                      />
+                                    )}
+                                    {mediumAct > 0 && (
+                                      <StatusPriority
+                                        count={mediumAct}
+                                        cod="medium"
+                                      />
+                                    )}
+                                    {lowAct > 0 && (
+                                      <StatusPriority
+                                        count={lowAct}
+                                        cod="low"
+                                      />
+                                    )}
+                                    {noPriorityAct > 0 && (
+                                      <StatusPriority
+                                        count={noPriorityAct}
+                                        cod="no"
+                                      />
+                                    )}
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-1">
+                                    {maintenance.activities.map(
+                                      (activity, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="text-xs bg-gray-100 rounded px-2 py-1"
+                                        >
+                                          <span className="font-medium">
+                                            {activity.activity?.name}
+                                          </span>
+                                          <span className="text-gray-600 ml-2">
+                                            ({getStatusLabel(activity.status)} -{" "}
+                                            {getPriorityLabel(
+                                              activity.priority || "no"
+                                            )}
+                                            )
+                                          </span>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          )}
+                        {maintenance.spare_parts &&
+                          maintenance.spare_parts.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-sm font-medium mb-1">
+                                Repuestos:
+                              </p>
+                              <div className="space-y-1">
+                                {maintenance.spare_parts.map(
+                                  (sparePart, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="text-xs bg-blue-50 rounded px-2 py-1"
+                                    >
+                                      {sparePart.spare_part?.name} (Cant:{" "}
+                                      {sparePart.quantity})
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {detailsEquipment.maintenance_records && (
+              <div className="mt-6">
+                <PaginationComponent
+                  paginationData={{
+                    ...detailsEquipment.maintenance_records,
+                    start: detailsEquipment.maintenance_records.offset,
+                    end: Math.min(
+                      detailsEquipment.maintenance_records.offset +
+                        detailsEquipment.maintenance_records.data.length,
+                      detailsEquipment.maintenance_records.total
+                    ),
+                  }}
+                  onPageChange={handlePageChange}
+                  loading={loadingMaintenanceRecords}
+                />
+              </div>
+            )}
+
+            {(!detailsEquipment.maintenance_records ||
+              detailsEquipment.maintenance_records.data.length === 0) && (
+              <div className="text-center py-8">
+                <p className="text-gray-500">
+                  No hay registros de mantenimiento para este equipo
+                </p>
+              </div>
+            )}
           </div>
         </Modal>
       )}

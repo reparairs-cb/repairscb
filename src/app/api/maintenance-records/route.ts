@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
             maintenance_record_id: activitiesResult.maintenance_record_id,
             activity_id: body.activities[index].activity_id,
             status: body.activities[index].status,
+            priority: body.activities[index].priority,
             observations: body.activities[index].observations,
             created_at: act.created_at,
             updated_at: act.created_at,
@@ -355,6 +356,8 @@ export async function PUT(request: NextRequest) {
         user_id: session.user.id,
       });
 
+      console.log("Activities updated:", activitiesResult);
+
       updated_MaintenanceRecord.activities =
         activitiesResult.processed_activities.map((act, index) => {
           return {
@@ -362,12 +365,17 @@ export async function PUT(request: NextRequest) {
             maintenance_record_id: activitiesResult.maintenance_record_id,
             activity_id: body.activities[index].activity_id,
             status: body.activities[index].status,
+            priority: body.activities[index].priority,
             observations: body.activities[index].observations,
             created_at: new Date(),
-            user_id: act.created_at,
+            user_id: session.user.id,
             activity: body.activities[index],
           };
         });
+      console.log(
+        "Updated activities for maintenance record with ID:",
+        updated_MaintenanceRecord.activities
+      );
     }
 
     console.log(

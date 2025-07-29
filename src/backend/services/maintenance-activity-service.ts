@@ -372,7 +372,8 @@ class MaintenanceActivityService {
     activityId: string,
     status: "completed" | "pending" | "in_progress" = "pending",
     observations: string | undefined,
-    userId: string
+    userId: string,
+    priority: "no" | "low" | "medium" | "high" | "immediate" = "no"
   ): Promise<{ id: string; created_at: Date } | null> {
     try {
       // Verificar que la actividad no esté ya en el mantenimiento
@@ -393,8 +394,10 @@ class MaintenanceActivityService {
         maintenance_record_id: maintenanceRecordId,
         activity_id: activityId,
         status: status,
+
         observations,
         user_id: userId,
+        priority,
       });
     } catch (error) {
       console.error("Error al agregar actividad al mantenimiento:", error);

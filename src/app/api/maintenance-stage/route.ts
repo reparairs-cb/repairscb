@@ -170,7 +170,7 @@ export async function PUT(request: Request) {
 
     const data: MaintenanceStageUpdate & { stages: MaintenanceStageBase[] } =
       await request.json();
-
+    console.log("Datos recibidos en PUT:", data);
     if (
       !data.maintenance_type_id ||
       data.stage_index === undefined ||
@@ -212,7 +212,11 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        stage_index: sortedStages.find((s) => s.id === data.id)?.stage_index,
+        sorted_stages: sortedStages,
+      },
     });
   } catch (error) {
     console.error("Error en PUT /api/maintenance-stage:", error);

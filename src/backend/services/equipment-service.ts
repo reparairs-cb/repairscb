@@ -8,6 +8,7 @@ import {
   MultiEqWithPendingInProgressMRs,
 } from "@/types/equipment";
 import { maintenanceActivityService } from "./maintenance-activity-service";
+import { maintenanceSparePartService } from "./maintenance-spare-part-service";
 
 /**
  * Servicio para crear un nuevo equipo
@@ -137,19 +138,97 @@ class EquipmentService {
     userId: string,
     limit: number,
     offset: number,
+    maintenanceLimit?: number,
+    maintenanceOffset?: number,
     mileageLimit?: number,
     mileageOffset?: number
   ): Promise<MultiEquipmentWithRecords> {
     try {
-      return await this.repository.getAllWithRecords(
+      const eqs = await this.repository.getAllWithRecords(
         userId,
         limit,
         offset,
+        maintenanceLimit,
+        maintenanceOffset,
         mileageLimit,
         mileageOffset
       );
+
+      for (const equipment of eqs.data) {
+        if (equipment.maintenance_records) {
+          for (const record of equipment.maintenance_records.data) {
+            record.activities =
+              await maintenanceActivityService.getByMaintenanceRecordWithDetails(
+                record.id,
+                userId
+              );
+
+            record.spare_parts =
+              await maintenanceSparePartService.getByMaintenanceRecordWithDetails(
+                record.id,
+                userId
+              );
+          }
+        }
+      }
+
+      return eqs;
     } catch (error) {
       console.error("Error al obtener todos los equipos con registros:", error);
+      throw error;
+    }
+  }
+
+  async getAllWithRecordsByPriorityAndStatus(
+    userId: string,
+    limit: number,
+    offset: number,
+    maintenanceLimit?: number,
+    maintenanceOffset?: number,
+    mileageLimit?: number,
+    mileageOffset?: number,
+    by_priority: string[] | null = null,
+    by_status: string[] | null = null,
+    sort_by: { by: string; order: "asc" | "desc" } | null = null
+  ): Promise<MultiEquipmentWithRecords> {
+    try {
+      const eqs = await this.repository.getAllWithRecords(
+        userId,
+        limit,
+        offset,
+        maintenanceLimit,
+        maintenanceOffset,
+        mileageLimit,
+        mileageOffset,
+        by_priority,
+        by_status,
+        sort_by
+      );
+
+      for (const equipment of eqs.data) {
+        if (equipment.maintenance_records) {
+          for (const record of equipment.maintenance_records.data) {
+            record.activities =
+              await maintenanceActivityService.getByMaintenanceRecordWithDetails(
+                record.id,
+                userId
+              );
+
+            record.spare_parts =
+              await maintenanceSparePartService.getByMaintenanceRecordWithDetails(
+                record.id,
+                userId
+              );
+          }
+        }
+      }
+
+      return eqs;
+    } catch (error) {
+      console.error(
+        "Error al obtener todos los equipos con registros por prioridad y estado:",
+        error
+      );
       throw error;
     }
   }

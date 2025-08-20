@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("Payload:", body);
+
     let mileageRecord = body.mileage_record;
 
     if (
@@ -89,7 +91,8 @@ export async function POST(request: NextRequest) {
         user_id: session.user.id,
         kilometers: body.mileage,
       });
-    } else if (body.mileage && !mileageRecord) {
+    } else if ((body.mileage === 0 || body.mileage) && !mileageRecord) {
+      console.log("Creating new mileage record");
       // Si se proporciona un kilometraje sin un registro de kilometraje existente, creamos uno nuevo
       mileageRecord = await mileageRecordService.create({
         equipment_id: body.equipment_id,

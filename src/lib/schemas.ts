@@ -68,7 +68,7 @@ export const maintenanceRecordSchema = z
     end_datetime: z.date().optional(),
     maintenance_type_id: z.string().min(1, "Maintenance type is required"),
     observations: z.string().optional(),
-    mileage: z.number().min(1, "Mileage value is required"),
+    mileage: z.number().min(0, "Mileage value is required"),
     spare_parts: z.array(maintenanceSparePartSchema),
     activities: z.array(maintenanceActivitySchema),
   })

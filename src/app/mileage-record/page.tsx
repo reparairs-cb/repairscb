@@ -456,7 +456,9 @@ export default function MileageRecordPage() {
                 {
                   label: "Último kilometraje",
                   value: `${
-                    item.mileage_records?.data[0]?.kilometers || "N/A"
+                    item.mileage_records?.data[0]?.kilometers === 0
+                      ? "0"
+                      : item.mileage_records?.data[0]?.kilometers
                   } km`,
                 },
                 {

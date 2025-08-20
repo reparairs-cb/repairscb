@@ -93,7 +93,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             variant="outline"
             size="sm"
             onClick={() => {
-              /* onEdit(node); */
+              onEdit(node);
             }}
           >
             Editar
@@ -102,7 +102,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             variant="destructive"
             size="sm"
             onClick={() => {
-              /* onDelete(node.id); */
+              onDelete(node.id);
             }}
           >
             Eliminar
@@ -376,13 +376,16 @@ export default function MaintenanceTypePage() {
     });
 
     try {
-      const res = await fetch(`/api/maintenance-type/${editingItem.id}`, {
+      const res = await fetch(`/api/maintenance-type`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...data,
+          id: editingItem.id,
+          type: data.type,
+          level: editingItem.level,
+          path: editingItem.path,
           parent_id: data.parent_id === "none" ? null : data.parent_id,
         }),
       });
@@ -420,8 +423,12 @@ export default function MaintenanceTypePage() {
     }
 
     try {
-      const res = await fetch(`/api/maintenance-types/${id}`, {
+      const res = await fetch(`/api/maintenance-type`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
       });
 
       if (!res.ok) {

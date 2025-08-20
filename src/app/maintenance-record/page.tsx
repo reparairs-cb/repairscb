@@ -540,6 +540,8 @@ export default function MaintenanceRecordsPage() {
         })),
       };
 
+      console.log("Creating maintenance record:", maintenancePayload);
+
       const res = await fetch("/api/maintenance-records", {
         method: "POST",
         headers: {
@@ -1361,12 +1363,15 @@ export default function MaintenanceRecordsPage() {
                     control={control}
                     render={({ field }) => (
                       <Input
-                        type="number"
+                        type="text"
                         placeholder="Ingresa el kilometraje..."
-                        value={field.value || ""}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
-                        }
+                        value={field.value >= 0 ? field.value : ""}
+                        onChange={(e) => {
+                          try {
+                            field.onChange(parseFloat(e.target.value));
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                          } catch (e) {}
+                        }}
                       />
                     )}
                   />
@@ -1845,7 +1850,11 @@ export default function MaintenanceRecordsPage() {
                       <div>
                         <p className="text-sm">
                           <strong>Kilometraje:</strong>{" "}
-                          {maintenance.mileage_info?.kilometers || "N/A"} km
+                          {maintenance.mileage_info?.kilometers === 0
+                            ? "0"
+                            : maintenance.mileage_info?.kilometers ||
+                              "N/A"}{" "}
+                          km
                         </p>
                         <p className="text-sm">
                           <strong>Observaciones:</strong>{" "}

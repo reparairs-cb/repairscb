@@ -225,7 +225,7 @@ class MaintenanceSparePartService {
    */
   async bulkUpdate(bulkUpdate: BulkMaintenanceSparePartUpdate): Promise<{
     maintenance_record_id: string;
-    created_spare_parts: { id: string; created_at: Date }[];
+    processed_spare_parts: { id: string; created_at: Date }[];
   }> {
     try {
       // Validaciones de negocio para actualización masiva

@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DataCard } from "@/components/DataCard";
 import { Loader, Plus, Sheet } from "lucide-react";
-import type { MaintenanceRecordFormData } from "@/lib/schemas";
+import type {
+  MaintenanceActivityFormData,
+  MaintenanceRecordFormData,
+} from "@/lib/schemas";
 import type { MaintenanceRecordWithDetails } from "@/types/maintenance-record";
 import type {
   EquipmentWithMaintenanceCounts,
@@ -40,12 +43,12 @@ import { MaintenanceTypeSelect } from "@/components/MaintenanceTypeSelect";
 import {
   createLocalDate,
   dateToLocalISOString,
-  formatDate,
   statusOptions,
   priorityOptions,
   getPriorityLabel,
   getStatusLabel,
   getMaintenanceCount,
+  getDate,
 } from "@/lib/utils";
 import { FETCH_SIZE } from "@/lib/const";
 import { PaginationComponent } from "@/components/Pagination";
@@ -124,6 +127,23 @@ const getMaintenanceTypesById = (
   return undefined;
 };
 
+const isMaintenanceTypeAllowedByActivities = (
+  maintenanceTypeId: string,
+  selectedActivities: MaintenanceActivityFormData[],
+  activities: ActivityBase[]
+): boolean => {
+  if (selectedActivities.length === 0) return true;
+
+  const maintenanceTypesAllowed = activities
+    .filter((act) => selectedActivities.find((sa) => sa.id === act.id))
+    .flatMap((act) => act.maintenance_types);
+
+  return (
+    maintenanceTypesAllowed.find((mt) => mt.id === maintenanceTypeId) !==
+    undefined
+  );
+};
+
 export default function MaintenanceRecordsPage() {
   const { data: session } = useSession();
   const [equipment, setEquipment] =
@@ -167,12 +187,20 @@ export default function MaintenanceRecordsPage() {
     by: "priority",
     order: "desc",
   });
+  const [pagItems, setPagItems] = useState<{
+    start: number;
+    end: number;
+  }>({
+    start: 0,
+    end: FETCH_SIZE,
+  });
 
   const {
     control,
     handleSubmit,
     setValue,
     reset,
+    watch,
     formState: { errors },
   } = useForm<MaintenanceRecordFormData>({
     resolver: zodResolver(maintenanceRecordSchema),
@@ -373,27 +401,21 @@ export default function MaintenanceRecordsPage() {
   }, []);
 
   // Función para cargar más datos de mantenimiento cuando cambie de página
-  const handlePageChange = useCallback(
-    async (page: number) => {
-      const selectedMaintenance = equipment.data.find(
-        (item) => item.id === detailsEquipment?.id
-      )?.maintenance_records;
+  const handlePageChange = async (newOffset: number) => {
+    const selectedMaintenance = equipment.data.find(
+      (item) => item.id === detailsEquipment?.id
+    )?.maintenance_records;
 
-      if (!selectedMaintenance) return;
+    if (!selectedMaintenance) return;
 
-      const newOffset = (page - 1) * selectedMaintenance.limit;
+    // Verificar si ya tenemos estos datos
+    const totalLoadedRecords = selectedMaintenance.data.length;
+    const recordsNeeded =
+      newOffset + selectedMaintenance.limit > selectedMaintenance.total
+        ? selectedMaintenance.total
+        : newOffset + selectedMaintenance.limit;
 
-      // Verificar si ya tenemos estos datos
-      const totalLoadedRecords = selectedMaintenance.data.length;
-      const recordsNeeded =
-        newOffset + selectedMaintenance.limit > selectedMaintenance.total
-          ? selectedMaintenance.total
-          : newOffset + selectedMaintenance.limit;
-
-      if (totalLoadedRecords >= recordsNeeded) {
-        return;
-      }
-
+    if (totalLoadedRecords < recordsNeeded) {
       setLoadingMaintenanceRecords(true);
       setNoise(null);
 
@@ -427,38 +449,57 @@ export default function MaintenanceRecordsPage() {
             updated_at: record.updated_at
               ? new Date(record.updated_at)
               : undefined,
+            maintenance_type: getMaintenanceTypesById(
+              record.maintenance_type_id,
+              maintenanceTypes
+            ),
           })
         );
 
+        console.log("New maintenance records:", newData);
+
         if (newData.data.length > 0) {
+          let newEquipment = equipment.data.find(
+            (item) => item.id === detailsEquipment?.id
+          );
+
+          if (
+            newEquipment === undefined ||
+            newEquipment.maintenance_records === undefined
+          )
+            return;
+
+          newEquipment = {
+            ...newEquipment,
+            maintenance_records: {
+              ...newData,
+              data: newEquipment.maintenance_records.data
+                .concat(
+                  newData.data.filter(
+                    (newRecord: MaintenanceRecordWithDetails) =>
+                      !newEquipment?.maintenance_records?.data.some(
+                        (existingRecord) => existingRecord.id === newRecord.id
+                      )
+                  )
+                )
+                .sort(
+                  (a, b) =>
+                    b.start_datetime.getTime() - a.start_datetime.getTime()
+                ),
+            },
+          };
+
           setEquipment((prevEquipment) => ({
             ...prevEquipment,
             data: prevEquipment.data.map((eq) => {
               if (eq.id === detailsEquipment?.id) {
-                return {
-                  ...eq,
-                  maintenance_records: {
-                    ...eq.maintenance_records!,
-                    data: [
-                      ...eq.maintenance_records!.data,
-                      ...newData.data.filter(
-                        (newRecord: MaintenanceRecordWithDetails) =>
-                          !eq.maintenance_records!.data.some(
-                            (existingRecord) =>
-                              existingRecord.id === newRecord.id
-                          )
-                      ),
-                    ].sort(
-                      (a, b) =>
-                        b.start_datetime.getTime() - a.start_datetime.getTime()
-                    ),
-                    offset: newData.offset || 0,
-                  },
-                };
+                return newEquipment;
               }
               return eq;
             }),
           }));
+
+          setDetailsEquipment(newEquipment);
         }
       } catch (err) {
         setNoise({
@@ -470,9 +511,16 @@ export default function MaintenanceRecordsPage() {
       } finally {
         setLoadingMaintenanceRecords(false);
       }
-    },
-    [detailsEquipment?.id, equipment.data]
-  );
+    }
+
+    setPagItems({
+      start: newOffset,
+      end: Math.min(
+        newOffset + selectedMaintenance.limit,
+        selectedMaintenance.total
+      ),
+    });
+  };
 
   // Fetch mileage records when equipment is selected
   useEffect(() => {
@@ -522,9 +570,9 @@ export default function MaintenanceRecordsPage() {
     try {
       const maintenancePayload = {
         ...data,
-        start_datetime: dateToLocalISOString(data.start_datetime),
+        start_datetime: data.start_datetime.toISOString(),
         end_datetime: data.end_datetime
-          ? dateToLocalISOString(data.end_datetime)
+          ? data.end_datetime.toISOString()
           : undefined,
         mileage_record: selectedMileageRecord,
         activities: data.activities.map((act) => ({
@@ -703,8 +751,13 @@ export default function MaintenanceRecordsPage() {
         end_datetime: data.end_datetime
           ? new Date(data.end_datetime)
           : undefined,
+
         maintenance_type_id: data.maintenance_type_id,
         observations: data.observations || "",
+        maintenance_type: getMaintenanceTypesById(
+          data.maintenance_type_id,
+          maintenanceTypes
+        ),
         mileage_info: {
           kilometers: data.mileage,
           record_date: updatedRecord.mileage_info?.record_date || new Date(),
@@ -1202,18 +1255,6 @@ export default function MaintenanceRecordsPage() {
         })}
       </div>
 
-      <PaginationComponent
-        paginationData={{
-          ...equipment,
-          start: 0,
-          end: equipment.data.length,
-        }}
-        onPageChange={async (offset) => {
-          return await handlePageChange(Math.floor(offset / FETCH_SIZE) + 1);
-        }}
-        loading={false}
-      />
-
       {equipment.data.length === 0 && !noise && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">
@@ -1282,7 +1323,21 @@ export default function MaintenanceRecordsPage() {
                       <MaintenanceTypeSelect
                         maintenanceTypes={maintenanceTypes}
                         selectedValue={field.value}
-                        onChange={(value) => field.onChange(value)}
+                        onChange={(value) => {
+                          if (
+                            isMaintenanceTypeAllowedByActivities(
+                              value,
+                              watch("activities"),
+                              activities
+                            )
+                          ) {
+                            field.onChange(value);
+                          } else {
+                            toastVariables.error(
+                              "Acabas de seleccionar un tipo de mantenimiento que no es compatible con las actividades actuales del mantenimiento."
+                            );
+                          }
+                        }}
                       />
                     )}
                   />
@@ -1448,14 +1503,22 @@ export default function MaintenanceRecordsPage() {
                                         <SelectValue placeholder="Seleccionar actividad" />
                                       </SelectTrigger>
                                       <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                                        {activities.map((act) => (
-                                          <SelectItem
-                                            key={act.id}
-                                            value={act.id}
-                                          >
-                                            {act.name}
-                                          </SelectItem>
-                                        ))}
+                                        {activities
+                                          .filter((act) =>
+                                            act.maintenance_types.find(
+                                              (mt) =>
+                                                mt.id ===
+                                                watch("maintenance_type_id")
+                                            )
+                                          )
+                                          .map((act) => (
+                                            <SelectItem
+                                              key={act.id}
+                                              value={act.id}
+                                            >
+                                              {act.name}
+                                            </SelectItem>
+                                          ))}
                                       </SelectContent>
                                     </Select>
                                   )}
@@ -1772,211 +1835,214 @@ export default function MaintenanceRecordsPage() {
             )}
 
             <div className="space-y-4">
-              {detailsEquipment.maintenance_records?.data.map((maintenance) => {
-                const pendingAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.status === "pending"
-                  ).length || 0;
-                const inProgressAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.status === "in_progress"
-                  ).length || 0;
-                const completedAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.status === "completed"
-                  ).length || 0;
-                const noPriorityAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.priority === "no"
-                  ).length || 0;
-                const lowAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.priority === "low"
-                  ).length || 0;
-                const mediumAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.priority === "medium"
-                  ).length || 0;
-                const highAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.priority === "high"
-                  ).length || 0;
-                const immediateAct =
-                  maintenance.activities?.filter(
-                    (activity) => activity.priority === "immediate"
-                  ).length || 0;
-                const totalAct = maintenance.activities?.length || 0;
+              {detailsEquipment.maintenance_records?.data
+                .slice(pagItems.start, pagItems.end)
+                .map((maintenance) => {
+                  const pendingAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.status === "pending"
+                    ).length || 0;
+                  const inProgressAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.status === "in_progress"
+                    ).length || 0;
+                  const completedAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.status === "completed"
+                    ).length || 0;
+                  const noPriorityAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.priority === "no"
+                    ).length || 0;
+                  const lowAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.priority === "low"
+                    ).length || 0;
+                  const mediumAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.priority === "medium"
+                    ).length || 0;
+                  const highAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.priority === "high"
+                    ).length || 0;
+                  const immediateAct =
+                    maintenance.activities?.filter(
+                      (activity) => activity.priority === "immediate"
+                    ).length || 0;
+                  const totalAct = maintenance.activities?.length || 0;
 
-                return (
-                  <div
-                    key={maintenance.id}
-                    className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h4 className="font-semibold text-lg">
-                          {maintenance.maintenance_type?.type ||
-                            "Tipo no especificado"}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {formatDate(maintenance.start_datetime)}
-                          {maintenance.end_datetime && (
-                            <span>
-                              {" "}
-                              - {formatDate(maintenance.end_datetime)}
-                            </span>
-                          )}
-                        </p>
+                  return (
+                    <div
+                      key={maintenance.id}
+                      className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-semibold text-lg">
+                            {maintenance.maintenance_type?.type ||
+                              "Tipo no especificado"}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {getDate(maintenance.start_datetime)}
+                            {maintenance.end_datetime && (
+                              <span>
+                                {" "}
+                                - {getDate(maintenance.end_datetime)}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditModal(maintenance)}
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(maintenance.id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditModal(maintenance)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDelete(maintenance.id)}
-                        >
-                          Eliminar
-                        </Button>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 gap-4">
-                      <div>
-                        <p className="text-sm">
-                          <strong>Kilometraje:</strong>{" "}
-                          {maintenance.mileage_info?.kilometers === 0
-                            ? "0"
-                            : maintenance.mileage_info?.kilometers ||
-                              "N/A"}{" "}
-                          km
-                        </p>
-                        <p className="text-sm">
-                          <strong>Observaciones:</strong>{" "}
-                          {maintenance.observations || "Sin observaciones"}
-                        </p>
-                      </div>
-                      <div>
-                        {maintenance.activities &&
-                          maintenance.activities.length > 0 && (
-                            <Accordion type="single" collapsible>
-                              <AccordionItem value="item-1">
-                                <AccordionTrigger className="hover:no-underline">
-                                  <div className="flex items-center justify-between flex-wrap">
-                                    <span className="font-medium">
-                                      Actividades
-                                    </span>
-                                    <StatusPriority
-                                      count={totalAct}
-                                      cod="total"
-                                    />
-                                    {completedAct > 0 && (
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <p className="text-sm">
+                            <strong>Kilometraje:</strong>{" "}
+                            {maintenance.mileage_info?.kilometers === 0
+                              ? "0"
+                              : maintenance.mileage_info?.kilometers ||
+                                "N/A"}{" "}
+                            km
+                          </p>
+                          <p className="text-sm">
+                            <strong>Observaciones:</strong>{" "}
+                            {maintenance.observations || "Sin observaciones"}
+                          </p>
+                        </div>
+                        <div>
+                          {maintenance.activities &&
+                            maintenance.activities.length > 0 && (
+                              <Accordion type="single" collapsible>
+                                <AccordionItem value="item-1">
+                                  <AccordionTrigger className="hover:no-underline">
+                                    <div className="flex items-center justify-between flex-wrap">
+                                      <span className="font-medium">
+                                        Actividades
+                                      </span>
                                       <StatusPriority
-                                        count={completedAct}
-                                        cod="completed"
+                                        count={totalAct}
+                                        cod="total"
                                       />
-                                    )}
-                                    {inProgressAct > 0 && (
-                                      <StatusPriority
-                                        count={inProgressAct}
-                                        cod="in_progress"
-                                      />
-                                    )}
-                                    {pendingAct > 0 && (
-                                      <StatusPriority
-                                        count={pendingAct}
-                                        cod="pending"
-                                      />
-                                    )}
-                                    {immediateAct > 0 && (
-                                      <StatusPriority
-                                        count={immediateAct}
-                                        cod="immediate"
-                                      />
-                                    )}
-                                    {highAct > 0 && (
-                                      <StatusPriority
-                                        count={highAct}
-                                        cod="high"
-                                      />
-                                    )}
-                                    {mediumAct > 0 && (
-                                      <StatusPriority
-                                        count={mediumAct}
-                                        cod="medium"
-                                      />
-                                    )}
-                                    {lowAct > 0 && (
-                                      <StatusPriority
-                                        count={lowAct}
-                                        cod="low"
-                                      />
-                                    )}
-                                    {noPriorityAct > 0 && (
-                                      <StatusPriority
-                                        count={noPriorityAct}
-                                        cod="no"
-                                      />
-                                    )}
-                                  </div>
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                  <div className="space-y-1">
-                                    {maintenance.activities.map(
-                                      (activity, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="text-xs bg-gray-100 rounded px-2 py-1"
-                                        >
-                                          <span className="font-medium">
-                                            {activity.activity?.name}
-                                          </span>
-                                          <span className="text-gray-600 ml-2">
-                                            ({getStatusLabel(activity.status)} -{" "}
-                                            {getPriorityLabel(
-                                              activity.priority || "no"
-                                            )}
-                                            )
-                                          </span>
-                                        </div>
-                                      )
-                                    )}
-                                  </div>
-                                </AccordionContent>
-                              </AccordionItem>
-                            </Accordion>
-                          )}
-                        {maintenance.spare_parts &&
-                          maintenance.spare_parts.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-sm font-medium mb-1">
-                                Repuestos:
-                              </p>
-                              <div className="space-y-1">
-                                {maintenance.spare_parts.map(
-                                  (sparePart, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="text-xs bg-blue-50 rounded px-2 py-1"
-                                    >
-                                      {sparePart.spare_part?.name} (Cant:{" "}
-                                      {sparePart.quantity})
+                                      {completedAct > 0 && (
+                                        <StatusPriority
+                                          count={completedAct}
+                                          cod="completed"
+                                        />
+                                      )}
+                                      {inProgressAct > 0 && (
+                                        <StatusPriority
+                                          count={inProgressAct}
+                                          cod="in_progress"
+                                        />
+                                      )}
+                                      {pendingAct > 0 && (
+                                        <StatusPriority
+                                          count={pendingAct}
+                                          cod="pending"
+                                        />
+                                      )}
+                                      {immediateAct > 0 && (
+                                        <StatusPriority
+                                          count={immediateAct}
+                                          cod="immediate"
+                                        />
+                                      )}
+                                      {highAct > 0 && (
+                                        <StatusPriority
+                                          count={highAct}
+                                          cod="high"
+                                        />
+                                      )}
+                                      {mediumAct > 0 && (
+                                        <StatusPriority
+                                          count={mediumAct}
+                                          cod="medium"
+                                        />
+                                      )}
+                                      {lowAct > 0 && (
+                                        <StatusPriority
+                                          count={lowAct}
+                                          cod="low"
+                                        />
+                                      )}
+                                      {noPriorityAct > 0 && (
+                                        <StatusPriority
+                                          count={noPriorityAct}
+                                          cod="no"
+                                        />
+                                      )}
                                     </div>
-                                  )
-                                )}
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div className="space-y-1">
+                                      {maintenance.activities.map(
+                                        (activity, idx) => (
+                                          <div
+                                            key={idx}
+                                            className="text-xs bg-gray-100 rounded px-2 py-1"
+                                          >
+                                            <span className="font-medium">
+                                              {activity.activity?.name}
+                                            </span>
+                                            <span className="text-gray-600 ml-2">
+                                              ({getStatusLabel(activity.status)}{" "}
+                                              -{" "}
+                                              {getPriorityLabel(
+                                                activity.priority || "no"
+                                              )}
+                                              )
+                                            </span>
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            )}
+                          {maintenance.spare_parts &&
+                            maintenance.spare_parts.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-sm font-medium mb-1">
+                                  Repuestos:
+                                </p>
+                                <div className="space-y-1">
+                                  {maintenance.spare_parts.map(
+                                    (sparePart, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="text-xs bg-blue-50 rounded px-2 py-1"
+                                      >
+                                        {sparePart.spare_part?.name} (Cant:{" "}
+                                        {sparePart.quantity})
+                                      </div>
+                                    )
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
 
             {detailsEquipment.maintenance_records && (
@@ -1984,12 +2050,8 @@ export default function MaintenanceRecordsPage() {
                 <PaginationComponent
                   paginationData={{
                     ...detailsEquipment.maintenance_records,
-                    start: detailsEquipment.maintenance_records.offset,
-                    end: Math.min(
-                      detailsEquipment.maintenance_records.offset +
-                        detailsEquipment.maintenance_records.data.length,
-                      detailsEquipment.maintenance_records.total
-                    ),
+                    start: pagItems.start,
+                    end: pagItems.end,
                   }}
                   onPageChange={handlePageChange}
                   loading={loadingMaintenanceRecords}

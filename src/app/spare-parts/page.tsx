@@ -133,21 +133,81 @@ export default function SparePartsPage() {
     }
   };
 
-  const handleUpdate = (data: SparePartFormData) => {
+  const handleUpdate = async (data: SparePartFormData) => {
     if (!editingItem) return;
 
-    const updatedSpareParts = spareParts.map((item) =>
-      item.id === editingItem.id
-        ? { ...item, ...data, updated_at: new Date() }
-        : item
-    );
-    setSpareParts(updatedSpareParts);
-    setEditingItem(null);
+    setNoise({
+      type: "loading",
+      styleType: "modal",
+      message: "Actualizando el repuesto...",
+    });
+
+    try {
+      const res = await fetch(`/api/spare-parts`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...data,
+          id: editingItem.id,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update spare part");
+      }
+
+      setSpareParts((prev) =>
+        prev.map((item) =>
+          item.id === editingItem.id
+            ? {
+                ...data,
+                id: editingItem.id,
+                created_at: editingItem.created_at,
+                updated_at: new Date(),
+                user_id: editingItem.user_id,
+              }
+            : item
+        )
+      );
+      setNoise(null);
+      toastVariables.success("Repuesto actualizado exitosamente.");
+    } catch (error) {
+      setNoise(null);
+      console.error("Error updating spare part:", error);
+      toastVariables.error("Error al actualizar el repuesto.");
+    }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDelete = (id: string) => {
-    setSpareParts(spareParts.filter((item) => item.id !== id));
+  const handleDelete = async (id: string) => {
+    setNoise({
+      type: "loading",
+      styleType: "modal",
+      message: "Eliminando el repuesto...",
+    });
+
+    try {
+      const res = await fetch(`/api/spare-parts`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to delete spare part");
+      }
+
+      setSpareParts(spareParts.filter((item) => item.id !== id));
+      setNoise(null);
+      toastVariables.success("Repuesto eliminado exitosamente.");
+    } catch (error) {
+      console.error("Error deleting spare part:", error);
+      setNoise(null);
+      toastVariables.error("Error al eliminar el repuesto.");
+    }
   };
 
   const openCreateModal = () => {
@@ -161,7 +221,6 @@ export default function SparePartsPage() {
     reset();
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const openEditModal = (item: SparePartBase) => {
     setEditingItem(item);
     setValue("factory_code", item.factory_code);
@@ -219,9 +278,9 @@ export default function SparePartsPage() {
             subtitle={item.factory_code}
             badges={[
               { label: `S/.${item.price.toFixed(2)}`, variant: "secondary" },
-              ...(item.image_url
+              /* ...(item.image_url
                 ? [{ label: "Has Image", variant: "outline" as const }]
-                : []),
+                : []), */
             ]}
             fields={[
               { label: "Código de Fab.", value: item.factory_code },
@@ -229,10 +288,10 @@ export default function SparePartsPage() {
               { label: "Descripción", value: item.description },
             ]}
             onEdit={() => {
-              /* openEditModal(item); */
+              openEditModal(item);
             }}
             onDelete={() => {
-              /* handleDelete(item.id); */
+              handleDelete(item.id);
             }}
           />
         ))}

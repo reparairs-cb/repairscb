@@ -37,7 +37,6 @@ const usePagination = (
   console.log("Current Page:", currentPage);
   const goToPage = async (page: number) => {
     if (page < 1 || page > paginationData.pages || isLoading) return;
-
     const newOffset = (page - 1) * paginationData.limit;
     setIsLoading(true);
 

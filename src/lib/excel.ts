@@ -1,7 +1,7 @@
 "use client";
 import { MaintenanceRecordWithDetails } from "@/types/maintenance-record";
 import ExcelJS from "exceljs";
-import { getPriorityLabel, getStatusLabel } from "./utils";
+import { formatDate, getPriorityLabel, getStatusLabel } from "./utils";
 
 interface MaintenanceExcel {
   "ID Mantenimiento": string;
@@ -131,7 +131,7 @@ const createExcelTable = async (
       headers.map((header) => row[header as keyof typeof row])
     ),
   });
-  
+
   // Ajustar ancho de columnas
   headers.forEach((header, index) => {
     let maxWidth = header.length;
@@ -180,11 +180,12 @@ export const downloadMRExcel = async () => {
       : "",
     Kilometraje: record.mileage_info?.kilometers || 0,
     "Fecha Registro Kilometraje": record.mileage_info?.record_date
-      ? new Date(record.mileage_info.record_date).toLocaleDateString()
+      ? formatDate(new Date(record.mileage_info.record_date))
       : "",
     Observaciones: record.observations || "",
     "Total Actividades": record.activities?.length || 0,
-    "Total Repuestos": record.spare_parts?.length || 0,
+    "Total Repuestos":
+      record.spare_parts?.reduce((acc, part) => acc + part.quantity, 0) || 0,
     Estado: record.end_datetime ? "Completado" : "En progreso",
     Creado: new Date(record.created_at).toLocaleString(),
     "ID Mantenimiento": record.id,
@@ -222,6 +223,8 @@ export const downloadMRExcel = async () => {
   // Hoja 3: Repuestos
   const sparePartsData: MaintenanceSparePartExcel[] = [];
   data.forEach((record) => {
+    console.log("Registro de mantenimiento:", record.id);
+    console.log("Repuestos:", record.spare_parts);
     record.spare_parts?.forEach((sparePart) => {
       sparePartsData.push({
         "ID Mantenimiento": record.id,

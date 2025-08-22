@@ -484,8 +484,6 @@ class EquipmentRepository {
 
       const response = result.rows[0].get_all_equipment_with_record;
 
-      console.log("Filtered equipment data:", response);
-
       const data: EquipmentWithPaginatedRecords[] = response.data.map(
         (equipment: EquipmentWithPaginatedRecords) => ({
           id: equipment.id,

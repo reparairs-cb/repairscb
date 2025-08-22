@@ -297,14 +297,33 @@ class SparePartService {
           "Repuesto no encontrado o no tiene permisos para eliminarlo"
         );
       }
-
-      // Aquí podrías agregar validaciones adicionales:
+      
+      
       // - Verificar que no esté siendo usado en mantenimientos activos
+      const inUse = await this.isInUse(id);
+      if (inUse) {
+        throw new Error("El repuesto no puede ser eliminado porque está en uso");
+      }
+
       // - Verificar que no esté en órdenes de compra pendientes
 
       return await this.repository.delete({ id });
     } catch (error) {
       console.error("Error en SparePartService.delete:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validar si un repuesto está en uso
+   * @param id - ID del repuesto
+   * @returns true si está en uso, false en caso contrario
+   */
+  async isInUse(id: string): Promise<boolean> {
+    try {
+      return await this.repository.isInUse(id);
+    } catch (error) {
+      console.error("Error en SparePartService.isInUse:", error);
       throw error;
     }
   }

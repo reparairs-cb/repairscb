@@ -190,6 +190,18 @@ class SparePartRepository {
     }
   }
 
+  async isInUse(id: string): Promise<boolean> {
+    try {
+      const result = await this.db.query("SELECT is_spare_part_in_use($1)", [
+        id,
+      ]);
+      return result.rows[0].is_spare_part_in_use.in_use;
+    } catch (error) {
+      console.error("Error al verificar si el repuesto está en uso:", error);
+      throw error;
+    }
+  }
+
   /**
    * Buscar repuesto por código de fábrica
    */

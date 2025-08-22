@@ -35,7 +35,8 @@ class MaintenanceRecordRepository {
       // Validar fechas en el cliente antes de enviar a la base de datos
       if (
         maintenanceRecord.end_datetime &&
-        maintenanceRecord.end_datetime <= maintenanceRecord.start_datetime
+        new Date(maintenanceRecord.end_datetime) <=
+          new Date(maintenanceRecord.start_datetime)
       ) {
         throw new MaintenanceRecordError(
           MaintenanceRecordErrorCodes.INVALID_DATETIME_RANGE,
@@ -47,8 +48,10 @@ class MaintenanceRecordRepository {
         "SELECT create_maintenance_record($1, $2, $3, $4, $5, $6, $7)",
         [
           maintenanceRecord.equipment_id,
-          maintenanceRecord.start_datetime,
-          maintenanceRecord.end_datetime || null,
+          new Date(maintenanceRecord.start_datetime).toISOString(),
+          maintenanceRecord.end_datetime
+            ? new Date(maintenanceRecord.end_datetime).toISOString()
+            : null,
           maintenanceRecord.maintenance_type_id,
           maintenanceRecord.observations || null,
           maintenanceRecord.mileage_record_id,

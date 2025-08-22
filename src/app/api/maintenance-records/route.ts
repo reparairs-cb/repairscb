@@ -184,8 +184,13 @@ export async function POST(request: NextRequest) {
         user_id: session.user.id,
       });
 
+      console.log(
+        "Result bulk updating maintenance spare parts:",
+        sparePartsResult
+      );
+
       new_MaintenanceRecord.spare_parts =
-        sparePartsResult.created_spare_parts.map((sp, index) => {
+        sparePartsResult.processed_spare_parts.map((sp, index) => {
           return {
             id: sp.id,
             maintenance_record_id: sparePartsResult.maintenance_record_id,
@@ -417,7 +422,7 @@ export async function PUT(request: NextRequest) {
         });
 
         updated_MaintenanceRecord.spare_parts =
-          sparePartsResult.created_spare_parts.map((sp, index) => {
+          sparePartsResult.processed_spare_parts.map((sp, index) => {
             return {
               id: sp.id,
               maintenance_record_id: sparePartsResult.maintenance_record_id,

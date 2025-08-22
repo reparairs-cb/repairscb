@@ -316,9 +316,10 @@ class MaintenanceSparePartRepository {
    */
   async bulkUpdate(bulkUpdate: BulkMaintenanceSparePartUpdate): Promise<{
     maintenance_record_id: string;
-    created_spare_parts: { id: string; created_at: Date }[];
+    processed_spare_parts: { id: string; created_at: Date }[];
   }> {
     try {
+      console.log("Bulk updating maintenance spare parts:", bulkUpdate);
       const result = await this.db.query(
         "SELECT bulk_update_maintenance_spare_parts($1, $2, $3)",
         [
@@ -331,7 +332,7 @@ class MaintenanceSparePartRepository {
       const response = result.rows[0].bulk_update_maintenance_spare_parts;
       return {
         maintenance_record_id: response.maintenance_record_id,
-        created_spare_parts: response.created_spare_parts,
+        processed_spare_parts: response.processed_spare_parts,
       };
     } catch (err) {
       this.handleError(err as GlobalErrorResponse, "bulkUpdate", {
@@ -535,12 +536,9 @@ class MaintenanceSparePartRepository {
         ? {
             id: data.spare_part.id,
             name: data.spare_part.name,
-            part_number: data.spare_part.part_number,
+            factory_code: data.spare_part.factory_code,
             description: data.spare_part.description,
             unit_price: data.spare_part.unit_price,
-            stock_quantity: data.spare_part.stock_quantity,
-            supplier: data.spare_part.supplier,
-            category: data.spare_part.category,
             created_at: new Date(data.spare_part.created_at || data.created_at),
             updated_at: data.spare_part.updated_at
               ? new Date(data.spare_part.updated_at)

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { Modal } from "@/components/Modal";
@@ -373,35 +373,40 @@ export default function MaintenancePlanPage() {
   }, [selectedPlanForStage]);
 
   // Get available maintenance types for stage creation
-  const getAvailableMaintenanceTypes = (
-    planId: string,
-    excludeStageId?: string
-  ): MaintenanceTypeWithChildren[] => {
-    const planStages = allStages.filter(
-      (stage) =>
-        stage.maintenance_plan_id === planId &&
-        (excludeStageId ? stage.id !== excludeStageId : true)
-    );
-    const usedMaintenanceTypeIds = planStages.map(
-      (stage) => stage.maintenance_type_id
-    );
-
-    const filterAvailableTypes = (
-      types: MaintenanceTypeWithChildren[]
+  const getAvailableMaintenanceTypes = useCallback(
+    (
+      planId: string,
+      excludeStageId?: string
     ): MaintenanceTypeWithChildren[] => {
-      return types
-        .filter((type) => !usedMaintenanceTypeIds.includes(type.id))
-        .map((type) => ({
-          ...type,
-          children: type.children
-            ? filterAvailableTypes(type.children)
-            : undefined,
-        }))
-        .filter((type) => type.children?.length || !type.children);
-    };
+      const planStages = allStages.filter(
+        (stage) =>
+          stage.maintenance_plan_id === planId &&
+          (excludeStageId ? stage.id !== excludeStageId : true)
+      );
+      const usedMaintenanceTypeIds = planStages.map(
+        (stage) => stage.maintenance_type_id
+      );
 
-    return filterAvailableTypes(maintenanceTypes);
-  };
+      const filterAvailableTypes = (
+        types: MaintenanceTypeWithChildren[]
+      ): MaintenanceTypeWithChildren[] => {
+        return types
+          .filter((type) => !usedMaintenanceTypeIds.includes(type.id))
+          .map((type) => ({
+            ...type,
+            children:
+              type.children && type.children.length > 0
+                ? filterAvailableTypes(type.children)
+                : undefined,
+          }))
+          .filter(
+            (type) => type.children === undefined || type.children.length > 0
+          );
+      };
+      return filterAvailableTypes(maintenanceTypes);
+    },
+    [allStages, editingStage, maintenanceTypes]
+  );
 
   // Validate stage value in real time
   const validateStageValue = (
@@ -709,7 +714,7 @@ export default function MaintenancePlanPage() {
         maintenance_plan_id: data.maintenance_plan_id,
         maintenance_type_id: data.maintenance_type_id,
         kilometers: data.kilometers,
-        days: data.days,
+        days: data.days * selectedUnitTimeType.days,
         created_at: new Date(newStageData.created_at),
       };
 

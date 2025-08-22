@@ -46,7 +46,8 @@ export const MaintenanceTypeSelect: React.FC<{
   maintenanceTypes: MaintenanceTypeWithChildren[];
   selectedValue?: string;
   onChange: (value: string) => void;
-}> = ({ maintenanceTypes, selectedValue, onChange }) => {
+  emptyMessage?: string;
+}> = ({ maintenanceTypes, selectedValue, onChange, emptyMessage }) => {
   return (
     <>
       <Select value={selectedValue} onValueChange={onChange}>
@@ -54,14 +55,20 @@ export const MaintenanceTypeSelect: React.FC<{
           <SelectValue placeholder="Seleccionar tipo de mantenimiento..." />
         </SelectTrigger>
         <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-          {maintenanceTypes.map((node) => (
-            <MaintenanceTypeOption
-              key={node.id}
-              node={node}
-              level={0}
-              selectedValue={selectedValue}
-            />
-          ))}
+          {maintenanceTypes.length > 0 ? (
+            maintenanceTypes.map((node) => (
+              <MaintenanceTypeOption
+                key={node.id}
+                node={node}
+                level={0}
+                selectedValue={selectedValue}
+              />
+            ))
+          ) : (
+            <SelectItem disabled value="none">
+              {emptyMessage || "No hay tipos de mantenimiento disponibles"}
+            </SelectItem>
+          )}
         </SelectContent>
       </Select>
     </>

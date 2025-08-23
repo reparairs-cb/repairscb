@@ -66,6 +66,7 @@ import {
 import { downloadMRExcel } from "@/lib/excel";
 import { Filter, FilterOption } from "@/components/Filter";
 import { Sorter, SorterOption } from "@/components/Sorter";
+import { SelectModal } from "@/components/SelectModal";
 
 const optionsFilter: FilterOption[] = [
   {
@@ -195,6 +196,8 @@ export default function MaintenanceRecordsPage() {
     end: FETCH_SIZE,
   });
 
+  const [selectActOpen, setSelectActOpen] = useState(false);
+  const [selectSpPartOpen, setSelectSpPartOpen] = useState(false);
   const {
     control,
     handleSubmit,
@@ -219,7 +222,7 @@ export default function MaintenanceRecordsPage() {
   const {
     fields: sparePartsFields,
     append: appSparePart,
-    update: updtSparePart,
+    //update: updtSparePart,
     remove: rmSparePart,
   } = useFieldArray({
     control,
@@ -234,6 +237,10 @@ export default function MaintenanceRecordsPage() {
     control,
     name: "activities",
   });
+
+  useEffect(() => {
+    console.log(activitiesFields);
+  }, [activitiesFields]);
 
   // Fetch equipment with maintenance records
   useEffect(() => {
@@ -1007,6 +1014,14 @@ export default function MaintenanceRecordsPage() {
     reset();
   };
 
+  const handleOpenSelectActivity = () => {
+    setSelectActOpen(true);
+  };
+
+  const handleOpenSelectSpPart = () => {
+    setSelectSpPartOpen(true);
+  };
+
   const openEditModal = (item: MaintenanceRecordWithDetails) => {
     setEditingItem(item);
     console.log("Editing item:", item);
@@ -1053,17 +1068,17 @@ export default function MaintenanceRecordsPage() {
     setIsDetailsModalOpen(true);
   };
 
-  const addSparePart = () => {
+  const addSparePart = (id: string) => {
     appSparePart({
-      spare_part_id: "",
+      spare_part_id: id,
       quantity: 1,
       unit_price: undefined,
     });
   };
 
-  const addActivity = () => {
+  const addActivity = (id: string) => {
     appActivity({
-      activity_id: "",
+      activity_id: id,
       status: "pending",
       observations: "",
       priority: "no",
@@ -1468,163 +1483,155 @@ export default function MaintenanceRecordsPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={addActivity}
+                    onClick={handleOpenSelectActivity}
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Agregar Actividad
+                    Seleccionar Actividades
                   </Button>
                 </div>
 
-                <Controller
-                  name="activities"
-                  control={control}
-                  render={() => (
-                    <div className="space-y-3">
-                      {activitiesFields.map((activity, index) => (
-                        <div
-                          key={index}
-                          className="border rounded-lg p-4 mb-3 relative"
-                        >
-                          <div className="grid grid-cols-1 gap-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <Label>Actividad</Label>
-                                <Controller
-                                  name={`activities.${index}.activity_id`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Select
-                                      onValueChange={(value) => {
-                                        field.onChange(value);
-                                      }}
-                                      value={field.value}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Seleccionar actividad" />
-                                      </SelectTrigger>
-                                      <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                                        {activities
-                                          .filter((act) =>
-                                            act.maintenance_types.find(
-                                              (mt) =>
-                                                mt.id ===
-                                                watch("maintenance_type_id")
-                                            )
-                                          )
-                                          .map((act) => (
-                                            <SelectItem
-                                              key={act.id}
-                                              value={act.id}
-                                            >
-                                              {act.name}
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                />
-                              </div>
-                            </div>
+                <SelectModal
+                  isOpen={selectActOpen}
+                  onClose={() => setSelectActOpen(false)}
+                  onSelect={addActivity}
+                  onUnselect={(id, idx) => {
+                    rmActivity(idx);
+                  }}
+                  data={activities
+                    .filter((act) =>
+                      act.maintenance_types.find(
+                        (mt) => mt.id === watch("maintenance_type_id")
+                      )
+                    )
+                    .map((act) => ({
+                      id: act.id,
+                      title: act.name,
+                      description: act.description,
+                      badges: act.maintenance_types.map((mt) => ({
+                        label: mt.type,
+                      })),
+                    }))}
+                  selected={activitiesFields.map((act, index) => ({
+                    id: act.activity_id,
+                    original_index: index,
+                  }))}
+                />
 
-                            <div className="flex flex-col gap-2 w-full">
-                              <Label className="flex-1">Estado</Label>
-                              <Controller
-                                name={`activities.${index}.status`}
-                                control={control}
-                                render={({ field }) => (
-                                  <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Seleccionar estado" />
-                                    </SelectTrigger>
-                                    <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                                      {statusOptions.map((option) => (
-                                        <SelectItem
-                                          key={option.value}
-                                          value={option.value}
-                                        >
-                                          {option.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
-                            </div>
-
-                            <div className="flex flex-col gap-2 w-full">
-                              <Label className="flex-1">Prioridad</Label>
-                              <Controller
-                                name={`activities.${index}.priority`}
-                                control={control}
-                                render={({ field }) => (
-                                  <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Seleccionar prioridad" />
-                                    </SelectTrigger>
-                                    <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                                      {priorityOptions.map((option) => (
-                                        <SelectItem
-                                          key={option.value}
-                                          value={option.value}
-                                        >
-                                          {option.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
-                            </div>
-
-                            <div className="flex flex-col gap-2 w-full">
-                              <Label className="flex-1">Observaciones</Label>
-                              <Controller
-                                name={`activities.${index}.observations`}
-                                control={control}
-                                render={({ field }) => (
-                                  <Textarea
-                                    placeholder="Observaciones"
-                                    className="max-h-[20vh] md:max-h-[10vh]"
-                                    value={field.value || ""}
-                                    onChange={(e) =>
-                                      field.onChange(e.target.value)
-                                    }
-                                  />
-                                )}
-                              />
-                            </div>
-                            {errors.activities?.[index]?.activity_id && (
-                              <p className="text-red-500 text-sm mt-1">
-                                {errors.activities[index].activity_id?.message}
-                              </p>
-                            )}
-                            {errors.activities?.[index]?.status && (
-                              <p className="text-red-500 text-sm mt-1">
-                                {errors.activities[index].status?.message}
-                              </p>
-                            )}
-                          </div>
-                          <div className="absolute -top-1 -right-1">
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => rmActivity(index)}
-                            >
-                              Eliminar
-                            </Button>
+                <div className="space-y-3">
+                  {activitiesFields.map((activity, index) => (
+                    <div
+                      key={activity.id}
+                      className="border rounded-lg p-4 mb-3 relative"
+                    >
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <Label>
+                              Actividad
+                              {` ${
+                                activities.find(
+                                  (act) => act.id === activity.activity_id
+                                )?.name
+                              }`}
+                            </Label>
                           </div>
                         </div>
-                      ))}
+
+                        <div className="flex flex-col gap-2 w-full">
+                          <Label className="flex-1">Estado</Label>
+                          <Controller
+                            name={`activities.${index}.status`}
+                            control={control}
+                            render={({ field }) => (
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar estado" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
+                                  {statusOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2 w-full">
+                          <Label className="flex-1">Prioridad</Label>
+                          <Controller
+                            name={`activities.${index}.priority`}
+                            control={control}
+                            render={({ field }) => (
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar prioridad" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
+                                  {priorityOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2 w-full">
+                          <Label className="flex-1">Observaciones</Label>
+                          <Controller
+                            name={`activities.${index}.observations`}
+                            control={control}
+                            render={({ field }) => (
+                              <Textarea
+                                placeholder="Observaciones"
+                                className="max-h-[20vh] md:max-h-[10vh]"
+                                value={field.value || ""}
+                                onChange={(e) => field.onChange(e.target.value)}
+                              />
+                            )}
+                          />
+                        </div>
+                        {errors.activities?.[index]?.activity_id && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {errors.activities[index].activity_id?.message}
+                          </p>
+                        )}
+                        {errors.activities?.[index]?.status && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {errors.activities[index].status?.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="absolute -top-1 -right-1">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => rmActivity(index)}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                />
+                  ))}
+                </div>
               </div>
 
               {/* Spare Parts Section */}
@@ -1635,12 +1642,34 @@ export default function MaintenanceRecordsPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={addSparePart}
+                    onClick={handleOpenSelectSpPart}
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Agregar Repuesto
+                    Seleccionar Repuesto
                   </Button>
                 </div>
+
+                <SelectModal
+                  isOpen={selectSpPartOpen}
+                  onClose={() => setSelectSpPartOpen(false)}
+                  onSelect={addSparePart}
+                  onUnselect={(id, idx) => {
+                    rmSparePart(idx);
+                  }}
+                  data={spareParts.map((sp) => ({
+                    id: sp.id,
+                    title: sp.name,
+                    description: sp.description,
+                    badges: [
+                      { label: `S/. ${sp.price}` },
+                      { label: sp.factory_code },
+                    ],
+                  }))}
+                  selected={sparePartsFields.map((sp, index) => ({
+                    id: sp.spare_part_id,
+                    original_index: index,
+                  }))}
+                />
 
                 <Controller
                   name="spare_parts"
@@ -1654,8 +1683,15 @@ export default function MaintenanceRecordsPage() {
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <Label>Repuesto</Label>
-                              <Controller
+                              <Label>
+                                Repuesto
+                                {` ${
+                                  spareParts.find(
+                                    (sp) => sp.id === sparePart.spare_part_id
+                                  )?.name
+                                }`}
+                              </Label>
+                              {/* <Controller
                                 name={`spare_parts.${index}.spare_part_id`}
                                 control={control}
                                 render={({ field }) => (
@@ -1689,7 +1725,7 @@ export default function MaintenanceRecordsPage() {
                                     </SelectContent>
                                   </Select>
                                 )}
-                              />
+                              /> */}
                             </div>
 
                             <div>

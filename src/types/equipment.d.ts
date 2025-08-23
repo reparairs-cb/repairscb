@@ -17,8 +17,6 @@ export interface EquipmentBase extends BaseModel {
   };
 }
 
-export type EquipmentDB = EquipmentBase;
-
 export interface EquipmentCreate
   extends Omit<EquipmentBase, "id" | "created_at" | "updated_at"> {
   user_id: string;

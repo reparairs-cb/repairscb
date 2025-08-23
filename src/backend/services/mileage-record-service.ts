@@ -5,11 +5,9 @@ import {
 import { MileageRecordErrorCodes } from "@/lib/errors";
 import {
   MileageRecordBase,
-  MileageRecordWithEquipment,
   MileageRecordCreate,
   MileageRecordUpdate,
   MultiMileageRecord,
-  MileageStatistics,
   MileageRecordsByDateRangeResponse,
 } from "@/types/mileage-record";
 import { equipmentRepository } from "../repositories/equipment-repository";
@@ -130,35 +128,6 @@ class MileageRecordService {
   }
 
   /**
-   * Obtener registros de kilometraje con información del equipo
-   * @param limit - Límite de registros por página
-   * @param offset - Offset para paginación
-   * @param userId - ID del usuario
-   * @returns Lista paginada de registros con información del equipo
-   */
-  async getAllWithEquipment(
-    limit: number,
-    offset: number,
-    userId: string
-  ): Promise<{
-    total: number;
-    limit: number;
-    offset: number;
-    pages: number;
-    data: MileageRecordWithEquipment[];
-  }> {
-    try {
-      return await this.repository.getAllWithEquipment(limit, offset, userId);
-    } catch (error) {
-      console.error(
-        "Error al obtener registros de kilometraje con información del equipo:",
-        error
-      );
-      throw error;
-    }
-  }
-
-  /**
    * Obtener registros de kilometraje por equipo
    * @param equipmentId - ID del equipo
    * @param userId - ID del usuario
@@ -232,48 +201,6 @@ class MileageRecordService {
       );
     } catch (error) {
       console.error("Error al obtener registros por rango de fechas:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener el último registro de kilometraje por equipo
-   * @param equipmentId - ID del equipo
-   * @param userId - ID del usuario
-   * @returns El último registro del equipo o null si no existe
-   */
-  async getLatestByEquipment(
-    equipmentId: string,
-    userId: string
-  ): Promise<MileageRecordBase | null> {
-    try {
-      return await this.repository.getLatestByEquipment(equipmentId, userId);
-    } catch (error) {
-      console.error(
-        "Error al obtener el último registro de kilometraje:",
-        error
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener estadísticas de kilometraje por equipo
-   * @param equipmentId - ID del equipo
-   * @param userId - ID del usuario
-   * @returns Estadísticas completas del equipo
-   */
-  async getStatisticsByEquipment(
-    equipmentId: string,
-    userId: string
-  ): Promise<MileageStatistics> {
-    try {
-      return await this.repository.getStatisticsByEquipment(
-        equipmentId,
-        userId
-      );
-    } catch (error) {
-      console.error("Error al obtener estadísticas de kilometraje:", error);
       throw error;
     }
   }
@@ -374,82 +301,6 @@ class MileageRecordService {
         "Error al verificar existencia del registro para la fecha:",
         error
       );
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener registros de kilometraje agrupados por mes
-   * @param year - Año
-   * @param userId - ID del usuario
-   * @param equipmentId - ID del equipo (opcional)
-   * @returns Registros agrupados por mes
-   */
-  async getMonthlyStatistics(
-    year: number,
-    userId: string,
-    equipmentId?: string
-  ): Promise<{
-    year: number;
-    equipment_id?: string;
-    monthly_data: Array<{
-      month: number;
-      total_records: number;
-      total_kilometers: number;
-      avg_daily_kilometers: number;
-    }>;
-  }> {
-    try {
-      return await this.repository.getMonthlyStatistics(
-        year,
-        userId,
-        equipmentId
-      );
-    } catch (error) {
-      console.error("Error al obtener estadísticas mensuales:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Calcular distancia recorrida entre dos fechas
-   * @param equipmentId - ID del equipo
-   * @param startDate - Fecha de inicio
-   * @param endDate - Fecha de fin
-   * @param userId - ID del usuario
-   * @returns Distancia recorrida en el período
-   */
-  async getDistanceBetweenDates(
-    equipmentId: string,
-    startDate: Date,
-    endDate: Date,
-    userId: string
-  ): Promise<{
-    equipment_id: string;
-    start_date: Date;
-    end_date: Date;
-    start_kilometers: number | null;
-    end_kilometers: number | null;
-    distance_traveled: number | null;
-    days_between: number;
-  }> {
-    try {
-      // Validar rango de fechas
-      if (endDate < startDate) {
-        throw new MileageRecordError(
-          MileageRecordErrorCodes.INVALID_DATE_RANGE,
-          "End date must be greater than or equal to start date"
-        );
-      }
-
-      return await this.repository.getDistanceBetweenDates(
-        equipmentId,
-        startDate,
-        endDate,
-        userId
-      );
-    } catch (error) {
-      console.error("Error al calcular distancia entre fechas:", error);
       throw error;
     }
   }

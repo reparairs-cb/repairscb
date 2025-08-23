@@ -1,5 +1,5 @@
 import { pool } from "@/lib/supabase";
-import { Pool, PoolClient } from "pg";
+import { Pool } from "pg";
 import {
   MaintenanceSparePartBase,
   MaintenanceSparePartWithDetails,
@@ -7,8 +7,6 @@ import {
   MaintenanceSparePartUpdate,
   MultiMaintenanceSparePart,
   DeleteMaintenanceSparePart,
-  MaintenanceSparePartSummary,
-  MostUsedSparePart,
   BulkMaintenanceSparePartUpdate,
 } from "@/types/maintenance-spare-part";
 import { GlobalErrorResponse } from "@/lib/errors";
@@ -88,37 +86,6 @@ class MaintenanceSparePartRepository {
       return this.mapToMaintenanceSparePart(sparePartData);
     } catch (err) {
       this.handleError(err as GlobalErrorResponse, "getById", { id });
-    }
-  }
-
-  /**
-   * Obtener todos los repuestos de un registro de mantenimiento
-   */
-  async getByMaintenanceRecord(
-    maintenanceRecordId: string,
-    userId: string
-  ): Promise<MaintenanceSparePartBase[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_maintenance_spare_parts_by_maintenance($1, $2)",
-        [maintenanceRecordId, userId]
-      );
-
-      const spareParts =
-        result.rows[0].get_maintenance_spare_parts_by_maintenance;
-
-      if (!spareParts || spareParts.length === 0) {
-        return [];
-      }
-
-      return spareParts.map((sparePart: MaintenanceSparePartBase) =>
-        this.mapToMaintenanceSparePart(sparePart)
-      );
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getByMaintenanceRecord", {
-        maintenanceRecordId,
-        userId,
-      });
     }
   }
 
@@ -247,71 +214,6 @@ class MaintenanceSparePartRepository {
   }
 
   /**
-   * Obtener resumen de repuestos para un mantenimiento
-   */
-  async getMaintenanceSummary(
-    maintenanceRecordId: string,
-    userId: string
-  ): Promise<MaintenanceSparePartSummary> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_maintenance_spare_parts_summary($1, $2)",
-        [maintenanceRecordId, userId]
-      );
-
-      const summary = result.rows[0].get_maintenance_spare_parts_summary;
-
-      return {
-        maintenance_record_id: summary.maintenance_record_id,
-        total_spare_parts: summary.total_spare_parts,
-        total_quantity: summary.total_quantity,
-        total_cost: summary.total_cost,
-        spare_parts_list: summary.spare_parts_list || [],
-      };
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getMaintenanceSummary", {
-        maintenanceRecordId,
-        userId,
-      });
-    }
-  }
-
-  /**
-   * Obtener repuestos más utilizados por usuario
-   */
-  async getMostUsedSpareParts(
-    userId: string,
-    limit: number = 10
-  ): Promise<MostUsedSparePart[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_most_used_spare_parts($1, $2)",
-        [userId, limit]
-      );
-
-      const mostUsed = result.rows[0].get_most_used_spare_parts;
-
-      if (!mostUsed || mostUsed.length === 0) {
-        return [];
-      }
-
-      return mostUsed.map((item: MostUsedSparePart) => ({
-        spare_part_id: item.spare_part_id,
-        spare_part_name: item.spare_part_name,
-        part_number: item.part_number,
-        total_usage_count: item.total_usage_count,
-        total_quantity_used: item.total_quantity_used,
-        average_quantity_per_maintenance: item.average_quantity_per_maintenance,
-      }));
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getMostUsedSpareParts", {
-        userId,
-        limit,
-      });
-    }
-  }
-
-  /**
    * Actualización masiva de repuestos para un mantenimiento
    */
   async bulkUpdate(bulkUpdate: BulkMaintenanceSparePartUpdate): Promise<{
@@ -398,111 +300,6 @@ class MaintenanceSparePartRepository {
           userId,
         }
       );
-    }
-  }
-
-  /**
-   * Obtener el costo total de repuestos para un mantenimiento
-   */
-  async getTotalCostByMaintenance(
-    maintenanceRecordId: string,
-    userId: string
-  ): Promise<number> {
-    try {
-      const summary = await this.getMaintenanceSummary(
-        maintenanceRecordId,
-        userId
-      );
-      return summary.total_cost || 0;
-    } catch (err) {
-      this.handleError(
-        err as GlobalErrorResponse,
-        "getTotalCostByMaintenance",
-        {
-          maintenanceRecordId,
-          userId,
-        }
-      );
-    }
-  }
-
-  /**
-   * Buscar repuestos por nombre o número de parte
-   */
-  async searchBySparePartName(
-    query: string,
-    userId: string,
-    limit: number = 50
-  ): Promise<MaintenanceSparePartWithDetails[]> {
-    try {
-      const result = await this.db.query(
-        `
-        SELECT json_agg(
-          json_build_object(
-            'id', msp.id,
-            'maintenance_record_id', msp.maintenance_record_id,
-            'spare_part_id', msp.spare_part_id,
-            'quantity', msp.quantity,
-            'unit_price', msp.unit_price,
-            'created_at', msp.created_at,
-            'spare_part', json_build_object(
-              'id', sp.id,
-              'name', sp.name,
-              'part_number', sp.part_number,
-              'description', sp.description,
-              'unit_price', sp.unit_price,
-              'stock_quantity', sp.stock_quantity,
-              'supplier', sp.supplier,
-              'category', sp.category
-            ),
-            'total_cost', CASE
-              WHEN msp.unit_price IS NOT NULL THEN msp.quantity * msp.unit_price
-              WHEN sp.unit_price IS NOT NULL THEN msp.quantity * sp.unit_price
-              ELSE NULL
-            END
-          )
-        ) as spare_parts
-        FROM mnt.maintenance_spare_parts msp
-        INNER JOIN mnt.spare_parts sp ON msp.spare_part_id = sp.id
-        INNER JOIN mnt.maintenance_records mr ON msp.maintenance_record_id = mr.id
-        WHERE mr.user_id = $1 
-          AND (sp.name ILIKE $2 OR sp.part_number ILIKE $2)
-        ORDER BY msp.created_at DESC
-        LIMIT $3
-      `,
-        [userId, `%${query}%`, limit]
-      );
-
-      const spareParts = result.rows[0].spare_parts || [];
-      return spareParts.map((sparePart: MaintenanceSparePartWithDetails) =>
-        this.mapToMaintenanceSparePartWithDetails(sparePart)
-      );
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "searchBySparePartName", {
-        query,
-        userId,
-        limit,
-      });
-    }
-  }
-
-  /**
-   * Operación con transacción
-   */
-  async withTransaction<T>(
-    operation: (client: PoolClient) => Promise<T>
-  ): Promise<T> {
-    const client = await this.db.connect();
-    try {
-      await client.query("BEGIN");
-      const result = await operation(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
     }
   }
 

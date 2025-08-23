@@ -112,20 +112,6 @@ class MaintenanceTypeService {
   }
 
   /**
-   * Obtener tipos de mantenimiento raíz (nivel 0)
-   * @param userId - ID del usuario
-   * @returns Lista de tipos de mantenimiento raíz
-   */
-  async getRoot(userId: string): Promise<MaintenanceTypeBase[]> {
-    try {
-      return await this.repository.getRoot(userId);
-    } catch (error) {
-      console.error("Error al obtener tipos de mantenimiento raíz:", error);
-      throw error;
-    }
-  }
-
-  /**
    * Obtener hijos directos de un tipo de mantenimiento
    * @param parentId - ID del tipo padre
    * @param userId - ID del usuario
@@ -157,31 +143,6 @@ class MaintenanceTypeService {
       return await this.repository.getTree(userId);
     } catch (error) {
       console.error("Error al obtener árbol de tipos de mantenimiento:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Buscar tipos de mantenimiento por nombre
-   * @param searchTerm - Término de búsqueda
-   * @param userId - ID del usuario
-   * @returns Lista de tipos que coinciden con la búsqueda
-   */
-  async searchByName(
-    searchTerm: string,
-    userId: string
-  ): Promise<MaintenanceTypeBase[]> {
-    try {
-      if (!searchTerm?.trim()) {
-        throw new Error("El término de búsqueda es requerido");
-      }
-
-      return await this.repository.getByName(searchTerm, userId);
-    } catch (error) {
-      console.error(
-        "Error al buscar tipos de mantenimiento por nombre:",
-        error
-      );
       throw error;
     }
   }

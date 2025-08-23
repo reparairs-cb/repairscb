@@ -5,13 +5,9 @@ import {
   MileageRecordCreate,
   MileageRecordUpdate,
   MultiMileageRecord,
-  MileageStatistics,
-  MonthlyMileageStatistics,
   MileageRecordWithEquipment,
-  DistanceBetweenDates,
   MileageRecordsByEquipmentResponse,
   MileageRecordsByDateRangeResponse,
-  MileageRecordsWithEquipmentResponse,
 } from "@/types/mileage-record";
 import { MileageRecordErrorCodes } from "@/lib/errors";
 import { dateToLocalISOString } from "@/lib/utils";
@@ -169,58 +165,6 @@ class MileageRecordRepository {
   }
 
   /**
-   * Obtener registros de kilometraje con información del equipo
-   * @param limit - Límite de registros por página
-   * @param offset - Offset para paginación
-   * @param userId - ID del usuario
-   * @returns Lista paginada de registros con información del equipo
-   */
-  async getAllWithEquipment(
-    limit: number,
-    offset: number,
-    userId: string
-  ): Promise<MileageRecordsWithEquipmentResponse> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_mileage_records_with_equipment($1, $2, $3)",
-        [userId, limit, offset]
-      );
-
-      const response = result.rows[0].get_mileage_records_with_equipment;
-
-      return {
-        total: response.total,
-        limit: response.limit,
-        offset: response.offset,
-        pages: response.pages,
-        data: response.data.map((record: MileageRecordWithEquipment) => ({
-          id: record.id,
-          equipment_id: record.equipment_id,
-          record_date: new Date(record.record_date),
-          kilometers: record.kilometers,
-          created_at: new Date(record.created_at),
-          updated_at: record.updated_at
-            ? new Date(record.updated_at)
-            : undefined,
-          equipment: {
-            id: record.equipment.id,
-            type: record.equipment.type,
-            license_plate: record.equipment.license_plate,
-            code: record.equipment.code,
-          },
-          daily_distance: record.daily_distance,
-        })),
-      };
-    } catch (err) {
-      this.handleError(
-        err as { message?: string; stack?: string },
-        "getAllWithEquipment",
-        { limit, offset, userId }
-      );
-    }
-  }
-
-  /**
    * Obtener registros de kilometraje por equipo
    * @param equipmentId - ID del equipo
    * @param userId - ID del usuario
@@ -338,89 +282,6 @@ class MileageRecordRepository {
   }
 
   /**
-   * Obtener el último registro de kilometraje por equipo
-   * @param equipmentId - ID del equipo
-   * @param userId - ID del usuario
-   * @returns El último registro del equipo o null
-   */
-  async getLatestByEquipment(
-    equipmentId: string,
-    userId: string
-  ): Promise<MileageRecordBase | null> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_latest_mileage_by_equipment($1, $2)",
-        [equipmentId, userId]
-      );
-
-      const data = result.rows[0]?.get_latest_mileage_by_equipment;
-      if (!data) return null;
-
-      return {
-        id: data.id,
-        equipment_id: data.equipment_id,
-        record_date: new Date(data.record_date),
-        kilometers: parseFloat(data.kilometers),
-        created_at: new Date(data.created_at),
-        updated_at: data.updated_at ? new Date(data.updated_at) : undefined,
-      };
-    } catch (err) {
-      this.handleError(
-        err as { message?: string; stack?: string },
-        "getLatestByEquipment",
-        { equipmentId, userId }
-      );
-    }
-  }
-
-  /**
-   * Obtener estadísticas de kilometraje por equipo
-   * @param equipmentId - ID del equipo
-   * @param userId - ID del usuario
-   * @returns Estadísticas completas del equipo
-   */
-  async getStatisticsByEquipment(
-    equipmentId: string,
-    userId: string
-  ): Promise<MileageStatistics> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_mileage_statistics_by_equipment($1, $2)",
-        [equipmentId, userId]
-      );
-
-      const response = result.rows[0].get_mileage_statistics_by_equipment;
-
-      return {
-        equipment_id: response.equipment_id,
-        total_records: response.total_records,
-        first_record: response.first_record
-          ? {
-              date: new Date(response.first_record.date),
-              kilometers: parseFloat(response.first_record.kilometers),
-            }
-          : null,
-        latest_record: response.latest_record
-          ? {
-              date: new Date(response.latest_record.date),
-              kilometers: parseFloat(response.latest_record.kilometers),
-            }
-          : null,
-        total_kilometers: parseFloat(response.total_kilometers),
-        total_days: response.total_days,
-        average_daily_km: parseFloat(response.average_daily_km),
-        max_daily_km: parseFloat(response.max_daily_km),
-      };
-    } catch (err) {
-      this.handleError(
-        err as { message?: string; stack?: string },
-        "getStatisticsByEquipment",
-        { equipmentId, userId }
-      );
-    }
-  }
-
-  /**
    * Actualizar un registro de kilometraje
    * @param mileageRecord - Datos actualizados del registro
    * @returns El ID del registro actualizado
@@ -528,123 +389,6 @@ class MileageRecordRepository {
     } catch (error) {
       console.error("Error checking mileage record existence for date:", error);
       return undefined;
-    }
-  }
-
-  /**
-   * Obtener estadísticas mensuales
-   * @param year - Año
-   * @param userId - ID del usuario
-   * @param equipmentId - ID del equipo (opcional)
-   * @returns Estadísticas mensuales
-   */
-  async getMonthlyStatistics(
-    year: number,
-    userId: string,
-    equipmentId?: string
-  ): Promise<MonthlyMileageStatistics> {
-    try {
-      // Implementación usando getByDateRange
-      const startDate = new Date(year, 0, 1);
-      const endDate = new Date(year, 11, 31);
-
-      const records = await this.getByDateRange(
-        startDate,
-        endDate,
-        userId,
-        equipmentId,
-        10000,
-        0
-      );
-
-      // Agrupar por mes
-      const monthlyData = Array.from({ length: 12 }, (_, month) => {
-        const monthRecords = records.data.filter(
-          (record) => record.record_date.getMonth() === month
-        );
-
-        const totalKilometers =
-          monthRecords.length > 0
-            ? Math.max(...monthRecords.map((r) => r.kilometers)) -
-              Math.min(...monthRecords.map((r) => r.kilometers))
-            : 0;
-
-        return {
-          month: month + 1,
-          total_records: monthRecords.length,
-          total_kilometers: totalKilometers,
-          avg_daily_kilometers:
-            monthRecords.length > 0 ? totalKilometers / monthRecords.length : 0,
-        };
-      });
-
-      return {
-        year,
-        equipment_id: equipmentId,
-        monthly_data: monthlyData,
-      };
-    } catch (err) {
-      this.handleError(
-        err as { message?: string; stack?: string },
-        "getMonthlyStatistics",
-        { year, userId, equipmentId }
-      );
-    }
-  }
-
-  /**
-   * Calcular distancia recorrida entre dos fechas
-   * @param equipmentId - ID del equipo
-   * @param startDate - Fecha de inicio
-   * @param endDate - Fecha de fin
-   * @param userId - ID del usuario
-   * @returns Distancia recorrida en el período
-   */
-  async getDistanceBetweenDates(
-    equipmentId: string,
-    startDate: Date,
-    endDate: Date,
-    userId: string
-  ): Promise<DistanceBetweenDates> {
-    try {
-      const records = await this.getByDateRange(
-        startDate,
-        endDate,
-        userId,
-        equipmentId,
-        1000,
-        0
-      );
-
-      const sortedRecords = records.data.sort(
-        (a, b) => a.record_date.getTime() - b.record_date.getTime()
-      );
-
-      const startRecord = sortedRecords[0];
-      const endRecord = sortedRecords[sortedRecords.length - 1];
-
-      const daysBetween = Math.ceil(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      return {
-        equipment_id: equipmentId,
-        start_date: startDate,
-        end_date: endDate,
-        start_kilometers: startRecord?.kilometers || null,
-        end_kilometers: endRecord?.kilometers || null,
-        distance_traveled:
-          startRecord && endRecord
-            ? endRecord.kilometers - startRecord.kilometers
-            : null,
-        days_between: daysBetween,
-      };
-    } catch (err) {
-      this.handleError(
-        err as { message?: string; stack?: string },
-        "getDistanceBetweenDates",
-        { equipmentId, startDate, endDate, userId }
-      );
     }
   }
 

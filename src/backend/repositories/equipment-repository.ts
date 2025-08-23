@@ -298,51 +298,6 @@ class EquipmentRepository {
   }
 
   /**
-   * Buscar equipos por tipo
-   */
-  async getByType(type: string, user_id: string): Promise<EquipmentBase[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_equipments_by_type($1, $2)",
-        [type, user_id]
-      );
-
-      const equipments = result.rows[0].get_equipments_by_type;
-
-      if (!equipments || equipments.length === 0) {
-        return [];
-      }
-
-      return equipments.map((equipment: EquipmentBase) => ({
-        id: equipment.id,
-        type: equipment.type,
-        license_plate: equipment.license_plate,
-        code: equipment.code,
-        created_at: new Date(equipment.created_at),
-        updated_at: equipment.updated_at
-          ? new Date(equipment.updated_at)
-          : undefined,
-        user_id: equipment.user_id,
-        maintenance_plan_id: equipment.maintenance_plan_id,
-        maintenance_plan: equipment.maintenance_plan
-          ? {
-              id: equipment.maintenance_plan.id,
-              name: equipment.maintenance_plan.name,
-              description: equipment.maintenance_plan.description,
-            }
-          : undefined,
-      }));
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Error al obtener equipment por tipo:", err.stack);
-      } else {
-        console.error("Error al obtener equipment por tipo:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
    * Buscar equipo por código
    */
   async getByCode(
@@ -439,7 +394,20 @@ class EquipmentRepository {
   }
 
   /**
-   * Obtener equipos con registros de mantenimiento y kilometraje
+   * Retrieves a paginated list of equipment along with their associated maintenance and mileage records for a specific user.
+   *
+   * @param user_id - The ID of the user whose equipment records are to be fetched.
+   * @param limit - The maximum number of equipment items to return (default: 10).
+   * @param offset - The number of equipment items to skip before starting to collect the result set (default: 0).
+   * @param maintenance_limit - The maximum number of maintenance records to return per equipment (default: 10).
+   * @param maintenance_offset - The number of maintenance records to skip per equipment (default: 0).
+   * @param mileage_limit - The maximum number of mileage records to return per equipment (default: 30).
+   * @param mileage_offset - The number of mileage records to skip per equipment (default: 0).
+   * @param by_priority - Optional array of priority values to filter equipment.
+   * @param by_status - Optional array of status values to filter equipment.
+   * @param sort_by - Optional sorting configuration specifying the field and order.
+   * @returns A promise that resolves to a paginated list of equipment with their maintenance and mileage records.
+   * @throws Will throw an error if the database query fails.
    */
   async getAllWithRecords(
     user_id: string,
@@ -570,6 +538,13 @@ class EquipmentRepository {
     }
   }
 
+  /**
+   * Checks if the specified equipment has any associated records in the database.
+   *
+   * @param equipment_id - The unique identifier of the equipment to check.
+   * @returns A promise that resolves to `true` if the equipment has records, or `false` otherwise.
+   * @throws Will throw an error if the database query fails.
+   */
   async hasRecords(equipment_id: string): Promise<boolean> {
     try {
       const result = await this.db.query("SELECT equipment_has_records($1)", [

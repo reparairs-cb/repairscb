@@ -252,35 +252,6 @@ class MaintenancePlanService {
       throw error;
     }
   }
-
-  /**
-   * Obtener plan específico con etapas
-   */
-  async getWithStagesById(
-    id: string,
-    userId: string
-  ): Promise<MaintenancePlanWithStages | null> {
-    try {
-      if (!id?.trim()) {
-        throw new Error("El ID del plan es requerido");
-      }
-
-      const plan = await this.repository.getWithStagesById(id, userId);
-
-      // Verificar que el plan pertenezca al usuario
-      if (plan && plan.user_id !== userId) {
-        return null;
-      }
-
-      return plan;
-    } catch (error) {
-      console.error(
-        "Error en MaintenancePlanService.getWithStagesById:",
-        error
-      );
-      throw error;
-    }
-  }
 }
 
 export const maintenancePlanService = new MaintenancePlanService();

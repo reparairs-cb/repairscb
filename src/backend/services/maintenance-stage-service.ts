@@ -108,72 +108,7 @@ class MaintenanceStageService {
       throw error;
     }
   }
-
-  /**
-   * Obtener etapas por tipo y plan
-   */
-  async getByTypeAndPlan(
-    maintenanceTypeId: string,
-    maintenancePlanId: string,
-    userId: string,
-    limit: number = 100,
-    offset: number = 0
-  ): Promise<MultiMaintenanceStage> {
-    try {
-      if (!maintenanceTypeId?.trim()) {
-        throw new Error("El ID del tipo de mantenimiento es requerido");
-      }
-
-      if (!maintenancePlanId?.trim()) {
-        throw new Error("El ID del plan de mantenimiento es requerido");
-      }
-
-      if (limit <= 0 || limit > 100) {
-        throw new Error("El límite debe estar entre 1 y 100");
-      }
-
-      return await this.repository.getByTypeAndPlan(
-        maintenanceTypeId,
-        maintenancePlanId,
-        userId,
-        limit,
-        offset
-      );
-    } catch (error) {
-      console.error(
-        "Error en MaintenanceStageService.getByTypeAndPlan:",
-        error
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener etapas por plan
-   */
-  async getByPlan(
-    maintenancePlanId: string,
-    userId: string,
-    limit: number = 100,
-    offset: number = 0
-  ): Promise<MultiMaintenanceStage> {
-    try {
-      if (!maintenancePlanId?.trim()) {
-        throw new Error("El ID del plan de mantenimiento es requerido");
-      }
-
-      return await this.repository.getByPlan(
-        maintenancePlanId,
-        userId,
-        limit,
-        offset
-      );
-    } catch (error) {
-      console.error("Error en MaintenanceStageService.getByPlan:", error);
-      throw error;
-    }
-  }
-
+  
   /**
    * Actualizar etapa
    */
@@ -258,9 +193,6 @@ class MaintenanceStageService {
     }
   }
 
-  /**
-   * Reordenar etapas de un tipo en un plan
-   */
   /**
    * Reordenar etapas manualmente
    * @param maintenanceTypeId - ID del tipo de mantenimiento

@@ -8,8 +8,6 @@ export interface SparePartBase extends BaseModel {
   image_url?: string;
 }
 
-export type SparePartDB = SparePartBase;
-
 export interface SparePartCreate
   extends Omit<SparePartBase, "id" | "created_at" | "updated_at"> {
   user_id: string;

@@ -15,8 +15,6 @@ export interface MaintenanceRecordBase extends BaseModel {
   mileage_record_id: string;
 }
 
-export type MaintenanceRecordDB = MaintenanceRecordBase;
-
 export interface MaintenanceRecordCreate
   extends Omit<MaintenanceRecordBase, "id" | "created_at" | "updated_at"> {
   user_id: string;

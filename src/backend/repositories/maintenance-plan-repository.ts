@@ -225,32 +225,6 @@ class MaintenancePlanRepository {
       throw err;
     }
   }
-
-  /**
-   * Obtener plan específico con etapas
-   */
-  async getWithStagesById(
-    id: string,
-    userId: string
-  ): Promise<MaintenancePlanWithStages | null> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_maintenance_plan_with_stages_by_id($1, $2)",
-        [id, userId]
-      );
-
-      const planData = result.rows[0].get_maintenance_plan_with_stages_by_id;
-      if (!planData) return null;
-
-      return {
-        ...this.mapPlanData(planData),
-        stages: planData.stages || [],
-      };
-    } catch (err) {
-      console.error("Error al obtener plan con etapas:", err);
-      throw err;
-    }
-  }
 }
 
 export const maintenancePlanRepository = new MaintenancePlanRepository();

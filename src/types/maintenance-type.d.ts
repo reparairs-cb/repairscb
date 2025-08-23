@@ -6,9 +6,6 @@ export interface MaintenanceTypeBase extends Omit<BaseModel, "updated_at"> {
   level: number;
   path?: string;
 }
-
-export type MaintenanceTypeDB = MaintenanceTypeBase;
-
 export interface MaintenanceTypeCreate
   extends Omit<MaintenanceTypeBase, "id" | "created_at"> {
   user_id: string;

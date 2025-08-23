@@ -9,8 +9,6 @@ export interface MaintenanceActivityBase {
   updated_at?: Date;
 }
 
-export type MaintenanceActivityDB = MaintenanceActivityBase;
-
 export interface MultiMaintenanceActivity {
   total: number;
   limit: number;
@@ -38,35 +36,6 @@ export interface MaintenanceActivityWithDetails
   extends MaintenanceActivityBase {
   activity: ActivityBase;
   completion_status?: "completed" | "pending" | "in_progress";
-}
-
-export interface MaintenanceActivityProgress {
-  maintenance_record_id: string;
-  total_activities: number;
-  completed_activities: number;
-  pending_activities: number;
-  progress_percentage: number;
-  is_complete: boolean;
-}
-
-export interface MaintenanceActivityStats {
-  total_activities: number;
-  completed_activities: number;
-  pending_activities: number;
-  completion_rate_percentage: number;
-  most_common_activities: {
-    activity_id: string;
-    activity_name: string;
-    usage_count: number;
-  }[];
-}
-
-export interface PendingMaintenanceActivity extends MaintenanceActivityBase {
-  activity?: Pick<ActivityBase, "id" | "name" | "status" | "description" | "priority">;
-  maintenance_info?: Pick<
-    MaintenanceRecordBase,
-    "id" | "equipment_id" | "start_datetime" | "maintenance_type_id"
-  >;
 }
 
 export interface BulkMaintenanceActivityUpdate {

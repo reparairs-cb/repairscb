@@ -195,41 +195,6 @@ class MaintenanceTypeRepository {
   }
 
   /**
-   * Obtener tipos de mantenimiento raíz (nivel 0)
-   */
-  async getRoot(user_id: string): Promise<MaintenanceTypeBase[]> {
-    try {
-      const result = await pool.query(
-        "SELECT get_maintenance_types_by_level($1, $2)",
-        [0, user_id]
-      );
-
-      const maintenanceTypes = result.rows[0].get_maintenance_types_by_level;
-
-      if (!maintenanceTypes || maintenanceTypes.length === 0) {
-        return [];
-      }
-
-      return maintenanceTypes.map((maintenanceType: MaintenanceTypeBase) => ({
-        id: maintenanceType.id,
-        type: maintenanceType.type,
-        parent_id: maintenanceType.parent_id,
-        level: maintenanceType.level,
-        path: maintenanceType.path,
-        created_at: new Date(maintenanceType.created_at),
-        user_id: maintenanceType.user_id,
-      }));
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Error al obtener maintenance types raíz:", err.stack);
-      } else {
-        console.error("Error al obtener maintenance types raíz:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
    * Obtener hijos de un tipo de mantenimiento
    */
   async getChildren(
@@ -300,47 +265,6 @@ class MaintenanceTypeRepository {
         );
       } else {
         console.error("Error al obtener árbol de maintenance types:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * Buscar tipos de mantenimiento por nombre
-   */
-  async getByName(
-    search_term: string,
-    user_id: string
-  ): Promise<MaintenanceTypeBase[]> {
-    try {
-      const result = await pool.query(
-        "SELECT search_maintenance_types_by_name($1, $2)",
-        [search_term, user_id]
-      );
-
-      const maintenanceTypes = result.rows[0].search_maintenance_types_by_name;
-
-      if (!maintenanceTypes || maintenanceTypes.length === 0) {
-        return [];
-      }
-
-      return maintenanceTypes.map((maintenanceType: MaintenanceTypeBase) => ({
-        id: maintenanceType.id,
-        type: maintenanceType.type,
-        parent_id: maintenanceType.parent_id,
-        level: maintenanceType.level,
-        path: maintenanceType.path,
-        created_at: new Date(maintenanceType.created_at),
-        user_id: maintenanceType.user_id,
-      }));
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error(
-          "Error al buscar maintenance types por nombre:",
-          err.stack
-        );
-      } else {
-        console.error("Error al buscar maintenance types por nombre:", err);
       }
       throw err;
     }

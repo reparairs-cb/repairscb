@@ -4,9 +4,6 @@ import {
   ActivityCreate,
   ActivityUpdate,
   MultiActivity,
-  ActivityMaintenanceTypeAdd,
-  ActivityMaintenanceTypeRemove,
-  ActivityMaintenanceTypeResult,
 } from "@/types/activity";
 
 /**
@@ -109,62 +106,6 @@ class ActivityService {
       return await this.repository.getAll(limit, offset, userId);
     } catch (error) {
       console.error("Error en ActivityService.getAll:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener actividades por tipo de mantenimiento
-   * @param maintenanceTypeId - ID del tipo de mantenimiento
-   * @param userId - ID del usuario
-   * @returns Lista de actividades del tipo especificado
-   */
-  async getByMaintenanceType(
-    maintenanceTypeId: string,
-    userId: string
-  ): Promise<ActivityBase[]> {
-    try {
-      if (!maintenanceTypeId?.trim()) {
-        throw new Error("El ID del tipo de mantenimiento es requerido");
-      }
-
-      return await this.repository.getByMaintenanceType(
-        maintenanceTypeId,
-        userId
-      );
-    } catch (error) {
-      console.error("Error en ActivityService.getByMaintenanceType:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener actividades por múltiples tipos de mantenimiento
-   * @param maintenanceTypeIds - IDs de los tipos de mantenimiento
-   * @param userId - ID del usuario
-   * @param matchAll - Si debe tener TODOS los tipos (true) o AL MENOS UNO (false)
-   * @returns Lista de actividades que coinciden con los criterios
-   */
-  async getByMultipleMaintenanceTypes(
-    maintenanceTypeIds: string[],
-    userId: string,
-    matchAll: boolean = false
-  ): Promise<ActivityBase[]> {
-    try {
-      if (!maintenanceTypeIds || maintenanceTypeIds.length === 0) {
-        throw new Error("Al menos un ID de tipo de mantenimiento es requerido");
-      }
-
-      return await this.repository.getByMultipleMaintenanceTypes(
-        maintenanceTypeIds,
-        userId,
-        matchAll
-      );
-    } catch (error) {
-      console.error(
-        "Error en ActivityService.getByMultipleMaintenanceTypes:",
-        error
-      );
       throw error;
     }
   }
@@ -288,92 +229,6 @@ class ActivityService {
         "Error en ActivityService.existsInMaintenanceRecord:",
         error
       );
-      throw error;
-    }
-  }
-
-  // ==================== MÉTODOS PARA GESTIÓN DE TIPOS ====================
-
-  /**
-   * Agregar tipos de mantenimiento a una actividad existente
-   * @param data - Datos para agregar tipos
-   * @param userId - ID del usuario
-   * @returns Resultado de la operación
-   */
-  async addMaintenanceTypes(
-    data: ActivityMaintenanceTypeAdd,
-    userId: string
-  ): Promise<ActivityMaintenanceTypeResult> {
-    try {
-      if (!data.activity_id?.trim()) {
-        throw new Error("El ID de la actividad es requerido");
-      }
-
-      if (
-        !data.maintenance_type_ids ||
-        data.maintenance_type_ids.length === 0
-      ) {
-        throw new Error("Al menos un tipo de mantenimiento es requerido");
-      }
-
-      // Verificar que la actividad existe y pertenece al usuario
-      const existing = await this.getById(data.activity_id, userId);
-      if (!existing) {
-        throw new Error(
-          "Actividad no encontrada o no tiene permisos para modificarla"
-        );
-      }
-
-      return await this.repository.addMaintenanceTypes(data, userId);
-    } catch (error) {
-      console.error("Error en ActivityService.addMaintenanceTypes:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Remover tipos de mantenimiento de una actividad
-   * @param data - Datos para remover tipos
-   * @param userId - ID del usuario
-   * @returns Resultado de la operación
-   */
-  async removeMaintenanceTypes(
-    data: ActivityMaintenanceTypeRemove,
-    userId: string
-  ): Promise<ActivityMaintenanceTypeResult> {
-    try {
-      if (!data.activity_id?.trim()) {
-        throw new Error("El ID de la actividad es requerido");
-      }
-
-      if (
-        !data.maintenance_type_ids ||
-        data.maintenance_type_ids.length === 0
-      ) {
-        throw new Error(
-          "Al menos un tipo de mantenimiento debe especificarse para remover"
-        );
-      }
-
-      // Verificar que la actividad existe y pertenece al usuario
-      const existing = await this.getById(data.activity_id, userId);
-      if (!existing) {
-        throw new Error(
-          "Actividad no encontrada o no tiene permisos para modificarla"
-        );
-      }
-
-      // Verificar que no se intente remover todos los tipos
-      const currentTypeCount = existing.maintenance_types.length;
-      if (data.maintenance_type_ids.length >= currentTypeCount) {
-        throw new Error(
-          "No se pueden remover todos los tipos de mantenimiento. Al menos uno debe permanecer."
-        );
-      }
-
-      return await this.repository.removeMaintenanceTypes(data, userId);
-    } catch (error) {
-      console.error("Error en ActivityService.removeMaintenanceTypes:", error);
       throw error;
     }
   }

@@ -5,9 +5,6 @@ import {
   ActivityUpdate,
   MultiActivity,
   DeleteActivity,
-  ActivityMaintenanceTypeAdd,
-  ActivityMaintenanceTypeRemove,
-  ActivityMaintenanceTypeResult,
 } from "@/types/activity";
 import { pool } from "@/lib/supabase";
 
@@ -181,38 +178,6 @@ class ActivityRepository {
   }
 
   /**
-   * Obtener actividades por tipo de mantenimiento
-   */
-  async getByMaintenanceType(
-    maintenanceTypeId: string,
-    userId: string
-  ): Promise<ActivityBase[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_activities_by_maintenance_type($1, $2)",
-        [maintenanceTypeId, userId]
-      );
-
-      const activities = result.rows[0].get_activities_by_maintenance_type;
-
-      if (!activities || activities.length === 0) {
-        return [];
-      }
-
-      return activities.map((activity: ActivityBase) =>
-        this.mapActivityData(activity)
-      );
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Error al obtener activities por tipo:", err.stack);
-      } else {
-        console.error("Error al obtener activities por tipo:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
    * Verificar si existe nombre en actividades del usuario
    */
   async nameExists(
@@ -257,136 +222,6 @@ class ActivityRepository {
         console.error("Error al verificar existencia de actividad:", err.stack);
       } else {
         console.error("Error al verificar existencia de actividad:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * Obtener actividades con información del tipo de mantenimiento
-   * (ActivityWithMaintenanceType es ahora equivalente a ActivityBase)
-   */
-  async getWithMaintenanceType(
-    userId: string,
-    limit: number = 100,
-    offset: number = 0
-  ): Promise<MultiActivity & { data: ActivityBase[] }> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_activities_with_maintenance_type($1, $2, $3)",
-        [userId, limit, offset]
-      );
-
-      const response = result.rows[0].get_activities_with_maintenance_type;
-
-      const data: ActivityBase[] = response.data.map((activity: ActivityBase) =>
-        this.mapActivityData(activity)
-      );
-
-      return {
-        total: response.total,
-        limit: response.limit,
-        offset: response.offset,
-        pages: response.pages,
-        data,
-      };
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error(
-          "Error al obtener activities con tipo de mantenimiento:",
-          err.stack
-        );
-      } else {
-        console.error(
-          "Error al obtener activities con tipo de mantenimiento:",
-          err
-        );
-      }
-      throw err;
-    }
-  }
-
-  // ==================== FUNCIONES PARA GESTIÓN DE TIPOS ====================
-
-  /**
-   * Agregar tipos de mantenimiento a una actividad existente
-   */
-  async addMaintenanceTypes(
-    data: ActivityMaintenanceTypeAdd,
-    userId: string
-  ): Promise<ActivityMaintenanceTypeResult> {
-    try {
-      const result = await this.db.query(
-        "SELECT add_maintenance_types_to_activity($1, $2, $3)",
-        [data.activity_id, data.maintenance_type_ids, userId]
-      );
-
-      return result.rows[0].add_maintenance_types_to_activity;
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Error al agregar tipos a actividad:", err.stack);
-      } else {
-        console.error("Error al agregar tipos a actividad:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * Remover tipos de mantenimiento de una actividad
-   */
-  async removeMaintenanceTypes(
-    data: ActivityMaintenanceTypeRemove,
-    userId: string
-  ): Promise<ActivityMaintenanceTypeResult> {
-    try {
-      const result = await this.db.query(
-        "SELECT remove_maintenance_types_from_activity($1, $2, $3)",
-        [data.activity_id, data.maintenance_type_ids, userId]
-      );
-
-      return result.rows[0].remove_maintenance_types_from_activity;
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error("Error al remover tipos de actividad:", err.stack);
-      } else {
-        console.error("Error al remover tipos de actividad:", err);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * Obtener actividades que tienen múltiples tipos específicos
-   */
-  async getByMultipleMaintenanceTypes(
-    maintenanceTypeIds: string[],
-    userId: string,
-    matchAll: boolean = false
-  ): Promise<ActivityBase[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_activities_by_multiple_types($1, $2, $3)",
-        [maintenanceTypeIds, userId, matchAll]
-      );
-
-      const activities = result.rows[0].get_activities_by_multiple_types;
-
-      if (!activities || activities.length === 0) {
-        return [];
-      }
-
-      return activities.map((activity: ActivityBase) =>
-        this.mapActivityData(activity)
-      );
-    } catch (err) {
-      if (err instanceof Error) {
-        console.error(
-          "Error al obtener activities por múltiples tipos:",
-          err.stack
-        );
-      } else {
-        console.error("Error al obtener activities por múltiples tipos:", err);
       }
       throw err;
     }

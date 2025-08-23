@@ -94,136 +94,6 @@ class SparePartService {
   }
 
   /**
-   * Buscar repuestos por nombre
-   * @param searchTerm - Término de búsqueda
-   * @param userId - ID del usuario
-   * @param limit - Límite de resultados
-   * @param offset - Offset para paginación
-   * @returns Lista de repuestos que coinciden con la búsqueda
-   */
-  async searchByName(
-    searchTerm: string,
-    userId: string,
-    limit: number = 50,
-    offset: number = 0
-  ): Promise<MultiSparePart & { search_term: string }> {
-    try {
-      if (!searchTerm?.trim()) {
-        throw new Error("El término de búsqueda es requerido");
-      }
-
-      if (limit <= 0 || limit > 100) {
-        throw new Error("El límite debe estar entre 1 y 100");
-      }
-
-      return await this.repository.getByName(searchTerm, userId, limit, offset);
-    } catch (error) {
-      console.error("Error en SparePartService.searchByName:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Buscar repuestos por rango de precios
-   * @param minPrice - Precio mínimo
-   * @param maxPrice - Precio máximo
-   * @param userId - ID del usuario
-   * @param limit - Límite de resultados
-   * @param offset - Offset para paginación
-   * @returns Lista de repuestos en el rango de precios
-   */
-  async getByPriceRange(
-    minPrice: number,
-    maxPrice: number,
-    userId: string,
-    limit: number = 50,
-    offset: number = 0
-  ): Promise<MultiSparePart & { min_price: number; max_price: number }> {
-    try {
-      if (minPrice < 0 || maxPrice < 0) {
-        throw new Error("Los precios no pueden ser negativos");
-      }
-
-      if (minPrice > maxPrice) {
-        throw new Error("El precio mínimo no puede ser mayor al precio máximo");
-      }
-
-      if (limit <= 0 || limit > 100) {
-        throw new Error("El límite debe estar entre 1 y 100");
-      }
-
-      return await this.repository.getByPriceRange(
-        minPrice,
-        maxPrice,
-        userId,
-        limit,
-        offset
-      );
-    } catch (error) {
-      console.error("Error en SparePartService.getByPriceRange:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener repuestos más utilizados
-   * @param userId - ID del usuario
-   * @param limit - Número de repuestos a retornar
-   * @returns Lista de repuestos más utilizados
-   */
-  async getMostUsed(
-    userId: string,
-    limit: number = 10
-  ): Promise<SparePartBase[]> {
-    try {
-      if (limit <= 0 || limit > 50) {
-        throw new Error("El límite debe estar entre 1 y 50");
-      }
-
-      return await this.repository.getMostUsed(userId, limit);
-    } catch (error) {
-      console.error("Error en SparePartService.getMostUsed:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Buscar repuesto por código de fábrica
-   * @param factoryCode - Código de fábrica
-   * @param userId - ID del usuario
-   * @returns El repuesto encontrado o null
-   */
-  async getByFactoryCode(
-    factoryCode: string,
-    userId: string
-  ): Promise<SparePartBase | null> {
-    try {
-      if (!factoryCode?.trim()) {
-        throw new Error("El código de fábrica es requerido");
-      }
-
-      return await this.repository.getByFactoryCode(factoryCode, userId);
-    } catch (error) {
-      console.error("Error en SparePartService.getByFactoryCode:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener estadísticas de repuestos
-   * @param userId - ID del usuario
-   * @returns Estadísticas detalladas de los repuestos
-   */
-  /* async getStats(userId: string): Promise<any> {
-    try {
-      return await this.repository.getStats(userId);
-    } catch (error) {
-      console.error("Error en SparePartService.getStats:", error);
-      throw error;
-    }
-  } */
-
-  /**
    * Actualizar un repuesto por su ID
    * @param sparePart - Nuevos datos del repuesto
    * @param userId - ID del usuario
@@ -297,12 +167,13 @@ class SparePartService {
           "Repuesto no encontrado o no tiene permisos para eliminarlo"
         );
       }
-      
-      
+
       // - Verificar que no esté siendo usado en mantenimientos activos
       const inUse = await this.isInUse(id);
       if (inUse) {
-        throw new Error("El repuesto no puede ser eliminado porque está en uso");
+        throw new Error(
+          "El repuesto no puede ser eliminado porque está en uso"
+        );
       }
 
       // - Verificar que no esté en órdenes de compra pendientes

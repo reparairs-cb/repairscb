@@ -1,5 +1,5 @@
 import { pool } from "@/lib/supabase";
-import { Pool, PoolClient } from "pg";
+import { Pool } from "pg";
 import {
   MaintenanceActivityBase,
   MaintenanceActivityWithDetails,
@@ -7,10 +7,7 @@ import {
   MaintenanceActivityUpdate,
   MultiMaintenanceActivity,
   DeleteMaintenanceActivity,
-  MaintenanceActivityProgress,
-  MaintenanceActivityStats,
   BulkMaintenanceActivityUpdate,
-  PendingMaintenanceActivity,
 } from "@/types/maintenance-activity";
 import { GlobalErrorResponse } from "@/lib/errors";
 
@@ -89,37 +86,6 @@ class MaintenanceActivityRepository {
       return this.mapToMaintenanceActivity(activityData);
     } catch (err) {
       this.handleError(err as GlobalErrorResponse, "getById", { id });
-    }
-  }
-
-  /**
-   * Obtener todas las actividades de un registro de mantenimiento
-   */
-  async getByMaintenanceRecord(
-    maintenanceRecordId: string,
-    userId: string
-  ): Promise<MaintenanceActivityBase[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_maintenance_activities_by_maintenance($1, $2)",
-        [maintenanceRecordId, userId]
-      );
-
-      const activities =
-        result.rows[0].get_maintenance_activities_by_maintenance;
-
-      if (!activities || activities.length === 0) {
-        return [];
-      }
-
-      return activities.map((activity: MaintenanceActivityBase) =>
-        this.mapToMaintenanceActivity(activity)
-      );
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getByMaintenanceRecord", {
-        maintenanceRecordId,
-        userId,
-      });
     }
   }
 
@@ -253,157 +219,6 @@ class MaintenanceActivityRepository {
     }
   }
 
-  /**
-   * Marcar una actividad como completada
-   */
-  async complete(
-    id: string,
-    userId: string,
-    observations?: string
-  ): Promise<{ id: string }> {
-    try {
-      const result = await this.db.query(
-        "SELECT complete_maintenance_activity($1, $2, $3)",
-        [id, observations || null, userId]
-      );
-
-      const response = result.rows[0].complete_maintenance_activity;
-      return {
-        id: response.id,
-      };
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "complete", {
-        id,
-        userId,
-        observations,
-      });
-    }
-  }
-
-  /**
-   * Marcar una actividad como pendiente
-   */
-  async markPending(
-    id: string,
-    userId: string
-  ): Promise<{ id: string; completed: boolean }> {
-    try {
-      const result = await this.db.query(
-        "SELECT mark_maintenance_activity_pending($1, $2)",
-        [id, userId]
-      );
-
-      const response = result.rows[0].mark_maintenance_activity_pending;
-      return {
-        id: response.id,
-        completed: response.completed,
-      };
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "markPending", {
-        id,
-        userId,
-      });
-    }
-  }
-
-  /**
-   * Obtener el progreso de un mantenimiento
-   */
-  async getMaintenanceProgress(
-    maintenanceRecordId: string,
-    userId: string
-  ): Promise<MaintenanceActivityProgress> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_maintenance_progress($1, $2)",
-        [maintenanceRecordId, userId]
-      );
-
-      const progress = result.rows[0].get_maintenance_progress;
-
-      return {
-        maintenance_record_id: progress.maintenance_record_id,
-        total_activities: progress.total_activities,
-        completed_activities: progress.completed_activities,
-        pending_activities: progress.pending_activities,
-        progress_percentage: progress.progress_percentage,
-        is_complete: progress.is_complete,
-      };
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getMaintenanceProgress", {
-        maintenanceRecordId,
-        userId,
-      });
-    }
-  }
-
-  /**
-   * Obtener actividades pendientes de un usuario
-   */
-  async getPendingActivities(
-    userId: string,
-    limit: number = 50
-  ): Promise<PendingMaintenanceActivity[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_pending_maintenance_activities($1, $2)",
-        [userId, limit]
-      );
-
-      const pendingActivities =
-        result.rows[0].get_pending_maintenance_activities;
-
-      if (!pendingActivities || pendingActivities.length === 0) {
-        return [];
-      }
-
-      return pendingActivities.map((activity: PendingMaintenanceActivity) => ({
-        id: activity.id,
-        maintenance_record_id: activity.maintenance_record_id,
-        activity_id: activity.activity_id,
-        status: activity.status,
-        observations: activity.observations,
-        created_at: new Date(activity.created_at),
-        updated_at: activity.updated_at
-          ? new Date(activity.updated_at)
-          : undefined,
-        activity: activity.activity,
-        maintenance_info: activity.maintenance_info,
-      }));
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getPendingActivities", {
-        userId,
-        limit,
-      });
-    }
-  }
-
-  /**
-   * Obtener estadísticas de actividades de mantenimiento
-   */
-  async getActivitiesStats(userId: string): Promise<MaintenanceActivityStats> {
-    try {
-      const result = await this.db.query(
-        "SELECT get_maintenance_activities_stats($1)",
-        [userId]
-      );
-
-      const stats = result.rows[0].get_maintenance_activities_stats;
-
-      return {
-        total_activities: stats.total_activities,
-        completed_activities: stats.completed_activities,
-        pending_activities: stats.pending_activities,
-        completion_rate_percentage: stats.completion_rate_percentage,
-        most_common_activities: stats.most_common_activities || [],
-      };
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getActivitiesStats", {
-        userId,
-      });
-    }
-  }
-
   async bulkCreate(bulkCreate: BulkMaintenanceActivityUpdate): Promise<{
     maintenance_record_id: string;
     created_activities: { id: string; created_at: Date }[];
@@ -461,29 +276,6 @@ class MaintenanceActivityRepository {
   }
 
   /**
-   * Verificar si existe un registro de actividad en mantenimiento
-   */
-  async exists(id: string, userId: string): Promise<boolean> {
-    try {
-      const result = await this.db.query(
-        `
-        SELECT EXISTS(
-          SELECT 1 
-          FROM mnt.maintenance_activities ma
-          INNER JOIN mnt.maintenance_records mr ON ma.maintenance_record_id = mr.id
-          WHERE ma.id = $1 AND mr.user_id = $2
-        ) as exists
-      `,
-        [id, userId]
-      );
-
-      return result.rows[0].exists;
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "exists", { id, userId });
-    }
-  }
-
-  /**
    * Verificar si una actividad ya está en un mantenimiento
    */
   async existsActivityInMaintenance(
@@ -517,129 +309,6 @@ class MaintenanceActivityRepository {
           userId,
         }
       );
-    }
-  }
-
-  /**
-   * Obtener actividades completadas de un mantenimiento
-   */
-  async getCompletedActivities(
-    maintenanceRecordId: string,
-    userId: string
-  ): Promise<MaintenanceActivityBase[]> {
-    try {
-      const result = await this.db.query(
-        `
-        SELECT json_agg(
-          json_build_object(
-            'id', ma.id,
-            'maintenance_record_id', ma.maintenance_record_id,
-            'activity_id', ma.activity_id,
-            'status', ma.status,
-            'observations', ma.observations,
-            'created_at', ma.created_at,
-            'updated_at', ma.updated_at
-          )
-        ) as activities
-        FROM mnt.maintenance_activities ma
-        INNER JOIN mnt.maintenance_records mr ON ma.maintenance_record_id = mr.id
-        WHERE ma.maintenance_record_id = $1 
-          AND ma.status = 'completed' 
-          AND mr.user_id = $2
-        ORDER BY ma.updated_at DESC
-      `,
-        [maintenanceRecordId, userId]
-      );
-
-      const activities = result.rows[0].activities || [];
-      return activities.map((activity: MaintenanceActivityBase) =>
-        this.mapToMaintenanceActivity(activity)
-      );
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "getCompletedActivities", {
-        maintenanceRecordId,
-        userId,
-      });
-    }
-  }
-
-  /**
-   * Buscar actividades por observaciones
-   */
-  async searchByObservations(
-    query: string,
-    userId: string,
-    limit: number = 50
-  ): Promise<MaintenanceActivityWithDetails[]> {
-    try {
-      const result = await this.db.query(
-        `
-        SELECT json_agg(
-          json_build_object(
-            'id', ma.id,
-            'maintenance_record_id', ma.maintenance_record_id,
-            'activity_id', ma.activity_id,
-            'status', ma.status,
-            'observations', ma.observations,
-            'created_at', ma.created_at,
-            'updated_at', ma.updated_at,
-            'activity', json_build_object(
-              'id', a.id,
-              'name', a.name,
-              'description', a.description,
-              'estimated_duration_minutes', a.estimated_duration_minutes,
-              'category', a.category,
-              'difficulty_level', a.difficulty_level,
-              'required_tools', a.required_tools,
-              'safety_requirements', a.safety_requirements
-            ),
-            'completion_status', CASE
-              WHEN ma.completed THEN 'completed'
-              ELSE 'pending'
-            END
-          )
-        ) as activities
-        FROM mnt.maintenance_activities ma
-        INNER JOIN mnt.activities a ON ma.activity_id = a.id
-        INNER JOIN mnt.maintenance_records mr ON ma.maintenance_record_id = mr.id
-        WHERE mr.user_id = $1 
-          AND ma.observations ILIKE $2
-        ORDER BY ma.created_at DESC
-        LIMIT $3
-      `,
-        [userId, `%${query}%`, limit]
-      );
-
-      const activities = result.rows[0].activities || [];
-      return activities.map((activity: MaintenanceActivityWithDetails) =>
-        this.mapToMaintenanceActivityWithDetails(activity)
-      );
-    } catch (err) {
-      this.handleError(err as GlobalErrorResponse, "searchByObservations", {
-        query,
-        userId,
-        limit,
-      });
-    }
-  }
-
-  /**
-   * Operación con transacción
-   */
-  async withTransaction<T>(
-    operation: (client: PoolClient) => Promise<T>
-  ): Promise<T> {
-    const client = await this.db.connect();
-    try {
-      await client.query("BEGIN");
-      const result = await operation(client);
-      await client.query("COMMIT");
-      return result;
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
     }
   }
 

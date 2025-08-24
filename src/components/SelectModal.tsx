@@ -16,6 +16,7 @@ export interface ObjectElement {
   title: string;
   description?: string;
   badges?: Badge[];
+  data?: Record<string, string | number>;
 }
 
 export interface SelectedElement {
@@ -28,7 +29,7 @@ interface SelectModalProps {
   onClose: () => void;
   data: ObjectElement[];
   selected: SelectedElement[];
-  onSelect: (id: string) => void;
+  onSelect: (id: string, data?: Record<string, string | number>) => void;
   onUnselect: (id: string, index: number) => void;
   title?: string;
 }
@@ -188,7 +189,7 @@ export const SelectModal: React.FC<SelectModalProps> = ({
                             checked={isSelected}
                             onCheckedChange={(checked) => {
                               if (checked) {
-                                onSelect(item.id);
+                                onSelect(item.id, item.data);
                               } else {
                                 const selectedElement = selected.find(
                                   (s) => s.id === item.id

@@ -31,10 +31,9 @@ const usePagination = (
 ) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  console.log("Pagination Data:", paginationData);
   const currentPage =
     Math.floor(paginationData.start / paginationData.limit) + 1;
-  console.log("Current Page:", currentPage);
+
   const goToPage = async (page: number) => {
     if (page < 1 || page > paginationData.pages || isLoading) return;
     const newOffset = (page - 1) * paginationData.limit;
@@ -42,8 +41,9 @@ const usePagination = (
 
     try {
       await onPageChange(newOffset);
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-      console.error("Error al cambiar página:", error);
     } finally {
       setIsLoading(false);
     }

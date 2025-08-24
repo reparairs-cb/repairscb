@@ -240,8 +240,8 @@ export default function MaintenanceRecordsPage() {
   });
 
   useEffect(() => {
-    console.log(activitiesFields);
-  }, [activitiesFields]);
+    console.log(errors);
+  }, [errors]);
 
   // Fetch equipment with maintenance records
   useEffect(() => {
@@ -1061,12 +1061,16 @@ export default function MaintenanceRecordsPage() {
     setIsDetailsModalOpen(true);
   };
 
-  const addSparePart = (id: string) => {
-    appSparePart({
-      spare_part_id: id,
-      quantity: 1,
-      unit_price: undefined,
-    });
+  const addSparePart = (id: string, data?: Record<string, string | number>) => {
+    console.log("Adding spare part:", id, data);
+
+    if (data?.price && typeof data.price === "number") {
+      appSparePart({
+        spare_part_id: id,
+        quantity: 1,
+        unit_price: data?.price,
+      });
+    }
   };
 
   const addActivity = (id: string) => {
@@ -1672,6 +1676,9 @@ export default function MaintenanceRecordsPage() {
                       { label: `S/. ${sp.price}` },
                       { label: sp.factory_code },
                     ],
+                    data: {
+                      price: sp.price,
+                    },
                   }))}
                   selected={sparePartsFields.map((sp, index) => ({
                     id: sp.spare_part_id,
@@ -1692,7 +1699,6 @@ export default function MaintenanceRecordsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                             <div>
                               <Label>
-                                Repuesto
                                 {` ${
                                   spareParts.find(
                                     (sp) => sp.id === sparePart.spare_part_id

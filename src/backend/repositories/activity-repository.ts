@@ -40,7 +40,7 @@ class ActivityRepository {
   ): Promise<{ id: string; created_at: Date }> {
     try {
       const result = await this.db.query(
-        "SELECT create_activity($1, $2, $3, $4)",
+        "SELECT mnt.create_activity($1, $2, $3, $4)",
         [
           activity.name,
           activity.description || null,
@@ -69,7 +69,7 @@ class ActivityRepository {
    */
   async getById(id: string): Promise<ActivityBase | null> {
     try {
-      const result = await this.db.query("SELECT get_activity_by_id($1)", [id]);
+      const result = await this.db.query("SELECT mnt.get_activity_by_id($1)", [id]);
 
       const activityData = result.rows[0].get_activity_by_id;
 
@@ -98,7 +98,7 @@ class ActivityRepository {
   ): Promise<MultiActivity> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_activities($1, $2, $3)",
+        "SELECT mnt.get_all_activities($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -131,7 +131,7 @@ class ActivityRepository {
   async update(activity: ActivityUpdate): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_activity($1, $2, $3, $4)",
+        "SELECT mnt.update_activity($1, $2, $3, $4)",
         [
           activity.id,
           activity.name,
@@ -159,7 +159,7 @@ class ActivityRepository {
    */
   async delete(deleteActivity: DeleteActivity): Promise<{ id: string }> {
     try {
-      const result = await this.db.query("SELECT delete_activity($1)", [
+      const result = await this.db.query("SELECT mnt.delete_activity($1)", [
         deleteActivity.id,
       ]);
 
@@ -187,7 +187,7 @@ class ActivityRepository {
   ): Promise<boolean> {
     try {
       const result = await this.db.query(
-        "SELECT activity_name_exists($1, $2, $3)",
+        "SELECT mnt.activity_name_exists($1, $2, $3)",
         [name, userId, excludeId || null]
       );
 
@@ -211,7 +211,7 @@ class ActivityRepository {
   ): Promise<boolean> {
     try {
       const result = await this.db.query(
-        "SELECT activity_exists_in_maintenance($1, $2)",
+        "SELECT mnt.activity_exists_in_maintenance($1, $2)",
         [activityId, userId]
       );
 

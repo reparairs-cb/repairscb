@@ -43,7 +43,7 @@ class MaintenancePlanRepository {
   ): Promise<{ id: string; created_at: Date }> {
     try {
       const result = await this.db.query(
-        "SELECT create_maintenance_plan($1, $2, $3)",
+        "SELECT mnt.create_maintenance_plan($1, $2, $3)",
         [plan.name, plan.description || null, plan.user_id]
       );
 
@@ -67,7 +67,7 @@ class MaintenancePlanRepository {
   ): Promise<MaintenancePlanBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_plan_by_id($1, $2)",
+        "SELECT mnt.get_maintenance_plan_by_id($1, $2)",
         [id, userId]
       );
 
@@ -91,7 +91,7 @@ class MaintenancePlanRepository {
   ): Promise<MultiMaintenancePlan> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_maintenance_plans($1, $2, $3)",
+        "SELECT mnt.get_all_maintenance_plans($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -123,7 +123,7 @@ class MaintenancePlanRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_maintenance_plan($1, $2, $3, $4)",
+        "SELECT mnt.update_maintenance_plan($1, $2, $3, $4)",
         [plan.id, userId, plan.name, plan.description]
       );
 
@@ -140,7 +140,7 @@ class MaintenancePlanRepository {
   async delete(id: string, userId: string): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT delete_maintenance_plan($1, $2)",
+        "SELECT mnt.delete_maintenance_plan($1, $2)",
         [id, userId]
       );
 
@@ -161,7 +161,7 @@ class MaintenancePlanRepository {
   ): Promise<boolean> {
     try {
       const result = await this.db.query(
-        "SELECT maintenance_plan_name_exists($1, $2, $3)",
+        "SELECT mnt.maintenance_plan_name_exists($1, $2, $3)",
         [name, userId, excludeId || null]
       );
 
@@ -178,7 +178,7 @@ class MaintenancePlanRepository {
   async canDelete(id: string, userId: string): Promise<CanDeleteResult> {
     try {
       const result = await this.db.query(
-        "SELECT can_delete_maintenance_plan($1, $2)",
+        "SELECT mnt.can_delete_maintenance_plan($1, $2)",
         [id, userId]
       );
 
@@ -200,7 +200,7 @@ class MaintenancePlanRepository {
   ): Promise<MultiMaintenancePlan & { data: MaintenancePlanWithStages[] }> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_maintenance_plans_with_stages($1, $2, $3, $4)",
+        "SELECT mnt.get_all_maintenance_plans_with_stages($1, $2, $3, $4)",
         [userId, limit, offset, includeEmptyPlans]
       );
 

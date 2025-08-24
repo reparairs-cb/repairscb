@@ -53,7 +53,7 @@ class MaintenanceStageRepository {
   ): Promise<{ id: string; created_at: Date }> {
     try {
       const result = await this.db.query(
-        "SELECT create_maintenance_stage($1, $2, $3, $4, $5, $6)",
+        "SELECT mnt.create_maintenance_stage($1, $2, $3, $4, $5, $6)",
         [
           stage.maintenance_type_id,
           stage.maintenance_plan_id,
@@ -84,7 +84,7 @@ class MaintenanceStageRepository {
   ): Promise<MaintenanceStageBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_stage_by_id($1, $2)",
+        "SELECT mnt.get_maintenance_stage_by_id($1, $2)",
         [id, userId]
       );
 
@@ -109,7 +109,7 @@ class MaintenanceStageRepository {
   ): Promise<MultiMaintenanceStage> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_maintenance_stages($1, $2, $3, $4)",
+        "SELECT mnt.get_all_maintenance_stages($1, $2, $3, $4)",
         [userId, planId || null, limit, offset]
       );
 
@@ -142,7 +142,7 @@ class MaintenanceStageRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_maintenance_stage($1, $2, $3, $4, $5, $6, $7)",
+        "SELECT mnt.update_maintenance_stage($1, $2, $3, $4, $5, $6, $7)",
         [
           stage.id,
           userId,
@@ -167,7 +167,7 @@ class MaintenanceStageRepository {
   async delete(id: string, userId: string): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT delete_maintenance_stage($1, $2)",
+        "SELECT mnt.delete_maintenance_stage($1, $2)",
         [id, userId]
       );
 

@@ -101,6 +101,12 @@ export async function POST(request: NextRequest) {
         user_id: session.user.id,
       });
 
+      mileageRecord = {
+        ...mileageRecord,
+        record_date: body.start_datetime,
+        kilometers: body.mileage,
+      };
+
       if (!mileageRecord) {
         return NextResponse.json(
           {

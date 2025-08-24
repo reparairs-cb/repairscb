@@ -476,17 +476,20 @@ export default function ActivityPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
       {noise && <Noise noise={noise} />}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Gestión de Actividades</h1>
-        <Button onClick={openCreateModal}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end mb-6 sm:mb-8 gap-4 sm:gap-0">
+        {/* <h1 className="text-xl sm:text-2xl font-bold">
+          Gestión de Actividades
+        </h1> */}
+        <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
-          Crear Actividad
+          <span className="hidden xs:inline">Crear Actividad</span>
+          <span className="inline xs:hidden">Crear</span>
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {activities.map((item) => (
           <DataCard
             key={item.id}
@@ -536,8 +539,8 @@ export default function ActivityPage() {
 
       {isModalOpen && (
         <Modal onClose={handleCancel}>
-          <div className="p-6 max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">
+          <div className="p-4 sm:p-6 max-w-[80vw] mx-auto max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4">
               {editingItem ? "Editar Actividad" : "Crear Actividad"}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -689,9 +692,9 @@ export default function ActivityPage() {
 
       {details && (
         <Modal onClose={() => setDetails(null)}>
-          <div className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">
+          <div className="max-w-full sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-semibold mb-4">
                 Detalles de la Actividad
               </h2>
               <div className="space-y-4">

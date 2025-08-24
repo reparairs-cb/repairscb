@@ -47,7 +47,7 @@ class EquipmentRepository {
       }
 
       const result = await this.db.query(
-        "SELECT create_equipment($1, $2, $3, $4, $5)",
+        "SELECT mnt.create_equipment($1, $2, $3, $4, $5)",
         [
           equipment.type,
           equipment.license_plate,
@@ -77,7 +77,7 @@ class EquipmentRepository {
    */
   async getById(id: string): Promise<EquipmentBase | null> {
     try {
-      const result = await this.db.query("SELECT get_equipment_by_id($1)", [
+      const result = await this.db.query("SELECT mnt.get_equipment_by_id($1)", [
         id,
       ]);
 
@@ -126,7 +126,7 @@ class EquipmentRepository {
   ): Promise<MultiEquipment> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_equipments($1, $2, $3)",
+        "SELECT mnt.get_all_equipments($1, $2, $3)",
         [user_id, limit, offset]
       );
 
@@ -178,7 +178,7 @@ class EquipmentRepository {
   ): Promise<MultiEqWithPendingInProgressMRs> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_equipment_with_pending_maintenance($1, $2, $3)",
+        "SELECT mnt.get_all_equipment_with_pending_maintenance($1, $2, $3)",
         [user_id, limit, offset]
       );
 
@@ -250,7 +250,7 @@ class EquipmentRepository {
   async update(equipment: EquipmentUpdate): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_equipment($1, $2, $3, $4, $5)",
+        "SELECT mnt.update_equipment($1, $2, $3, $4, $5)",
         [
           equipment.id,
           equipment.type,
@@ -279,7 +279,7 @@ class EquipmentRepository {
    */
   async delete(deleteEquipment: DeleteEquipment): Promise<{ id: string }> {
     try {
-      const result = await this.db.query("SELECT delete_equipment($1)", [
+      const result = await this.db.query("SELECT mnt.delete_equipment($1)", [
         deleteEquipment.id,
       ]);
 
@@ -306,7 +306,7 @@ class EquipmentRepository {
   ): Promise<EquipmentBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_equipment_by_code($1, $2)",
+        "SELECT mnt.get_equipment_by_code($1, $2)",
         [code, user_id]
       );
 
@@ -354,7 +354,7 @@ class EquipmentRepository {
   ): Promise<EquipmentBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_equipment_by_license_plate($1, $2)",
+        "SELECT mnt.get_equipment_by_license_plate($1, $2)",
         [license_plate, user_id]
       );
 
@@ -435,7 +435,7 @@ class EquipmentRepository {
         sort_by,
       });
       const result = await this.db.query(
-        "SELECT get_all_equipment_with_record($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        "SELECT mnt.get_all_equipment_with_record($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         [
           user_id,
           limit,
@@ -547,7 +547,7 @@ class EquipmentRepository {
    */
   async hasRecords(equipment_id: string): Promise<boolean> {
     try {
-      const result = await this.db.query("SELECT equipment_has_records($1)", [
+      const result = await this.db.query("SELECT mnt.equipment_has_records($1)", [
         equipment_id,
       ]);
 
@@ -574,7 +574,7 @@ class EquipmentRepository {
       console.log("Fetching maintenance plan for user:", user_id);
       console.log("Limit:", limit, "Offset:", offset);
       const result = await this.db.query(
-        "SELECT get_all_maintenance_plan($1, $2, $3)",
+        "SELECT mnt.get_all_maintenance_plan($1, $2, $3)",
         [user_id, limit, offset]
       );
 

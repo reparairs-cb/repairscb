@@ -45,7 +45,7 @@ class MaintenanceSparePartRepository {
   ): Promise<{ id: string; created_at: Date }> {
     try {
       const result = await this.db.query(
-        "SELECT create_maintenance_spare_part($1, $2, $3, $4, $5)",
+        "SELECT mnt.create_maintenance_spare_part($1, $2, $3, $4, $5)",
         [
           maintenanceSparePart.maintenance_record_id,
           maintenanceSparePart.spare_part_id,
@@ -73,7 +73,7 @@ class MaintenanceSparePartRepository {
   async getById(id: string): Promise<MaintenanceSparePartBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_spare_part_by_id($1)",
+        "SELECT mnt.get_maintenance_spare_part_by_id($1)",
         [id]
       );
 
@@ -98,7 +98,7 @@ class MaintenanceSparePartRepository {
   ): Promise<MaintenanceSparePartWithDetails[]> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_spare_parts_with_details($1, $2)",
+        "SELECT mnt.get_maintenance_spare_parts_with_details($1, $2)",
         [maintenanceRecordId, userId]
       );
 
@@ -134,7 +134,7 @@ class MaintenanceSparePartRepository {
   ): Promise<MultiMaintenanceSparePart> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_maintenance_spare_parts($1, $2, $3)",
+        "SELECT mnt.get_all_maintenance_spare_parts($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -169,7 +169,7 @@ class MaintenanceSparePartRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_maintenance_spare_part($1, $2, $3, $4)",
+        "SELECT mnt.update_maintenance_spare_part($1, $2, $3, $4)",
         [
           maintenanceSparePart.id,
           maintenanceSparePart.quantity || null,
@@ -197,7 +197,7 @@ class MaintenanceSparePartRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT delete_maintenance_spare_part($1, $2)",
+        "SELECT mnt.delete_maintenance_spare_part($1, $2)",
         [deleteSparePart.id, deleteSparePart.user_id]
       );
 
@@ -223,7 +223,7 @@ class MaintenanceSparePartRepository {
     try {
       console.log("Bulk updating maintenance spare parts:", bulkUpdate);
       const result = await this.db.query(
-        "SELECT bulk_update_maintenance_spare_parts($1, $2, $3)",
+        "SELECT mnt.bulk_update_maintenance_spare_parts($1, $2, $3)",
         [
           bulkUpdate.maintenance_record_id,
           JSON.stringify(bulkUpdate.spare_parts),

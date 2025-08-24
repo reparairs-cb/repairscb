@@ -66,7 +66,7 @@ class MileageRecordRepository {
       console.log("Creating mileage record with data:", mileageRecord);
 
       const result = await this.db.query(
-        "SELECT create_mileage_record($1, $2, $3, $4)",
+        "SELECT mnt.create_mileage_record($1, $2, $3, $4)",
         [
           mileageRecord.equipment_id,
           mileageRecord.record_date,
@@ -96,7 +96,7 @@ class MileageRecordRepository {
   async getById(id: string, userId: string): Promise<MileageRecordBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_mileage_record_by_id($1, $2)",
+        "SELECT mnt.get_mileage_record_by_id($1, $2)",
         [id, userId]
       );
 
@@ -133,7 +133,7 @@ class MileageRecordRepository {
   ): Promise<MultiMileageRecord> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_mileage_records($1, $2, $3)",
+        "SELECT mnt.get_all_mileage_records($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -180,7 +180,7 @@ class MileageRecordRepository {
   ): Promise<MileageRecordsByEquipmentResponse> {
     try {
       const result = await this.db.query(
-        "SELECT get_mileage_records_by_equipment($1, $2, $3, $4)",
+        "SELECT mnt.get_mileage_records_by_equipment($1, $2, $3, $4)",
         [equipmentId, userId, limit, offset]
       );
 
@@ -240,7 +240,7 @@ class MileageRecordRepository {
       }
 
       const result = await this.db.query(
-        "SELECT get_mileage_records_by_date_range($1, $2, $3, $4, $5, $6)",
+        "SELECT mnt.get_mileage_records_by_date_range($1, $2, $3, $4, $5, $6)",
         [startDate, endDate, userId, equipmentId, limit, offset]
       );
 
@@ -302,7 +302,7 @@ class MileageRecordRepository {
       console.log("Updating mileage record with data:", mileageRecord);
 
       const result = await this.db.query(
-        "SELECT update_mileage_record($1, $2, $3, $4, $5)",
+        "SELECT mnt.update_mileage_record($1, $2, $3, $4, $5)",
         [
           mileageRecord.id,
           mileageRecord.equipment_id || null,
@@ -332,7 +332,7 @@ class MileageRecordRepository {
   async delete(id: string, userId: string): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT delete_mileage_record($1, $2)",
+        "SELECT mnt.delete_mileage_record($1, $2)",
         [id, userId]
       );
 

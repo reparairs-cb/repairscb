@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useSession } from "next-auth/react";
 import { toastVariables } from "@/components/ToastVariables";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function SparePartsPage() {
   const { data: session } = useSession();
@@ -250,13 +251,14 @@ export default function SparePartsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-2 sm:px-4 py-6 sm:py-8">
       {noise && <Noise noise={noise} />}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Gestión de Repuestos</h1>
-        <Button onClick={openCreateModal}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end mb-6 sm:mb-8 gap-4 sm:gap-0">
+        {/* <h1 className="text-2xl font-bold">Gestión de Repuestos</h1> */}
+        <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
-          Crear Repuesto
+          <span className="hidden xs:inline">Crear Repuesto</span>
+          <span className="inline xs:hidden">Crear</span>
         </Button>
       </div>
 
@@ -270,7 +272,7 @@ export default function SparePartsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         {spareParts.map((item) => (
           <DataCard
             key={item.id}
@@ -299,112 +301,140 @@ export default function SparePartsPage() {
 
       {isModalOpen && (
         <Modal onClose={handleCancel}>
-          <div className="p-6 max-h-[90vh] max-w-[75vw] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingItem ? "Edit Spare Part" : "Create Spare Part"}
+          <div className="p-4 sm:p-6 max-h-[90vh] w-full sm:max-w-[75vw] max-w-[95vw] overflow-y-auto">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
+              {editingItem ? "Editar Repuesto" : "Crear Repuesto"}
             </h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="mb-4">
-                <Label htmlFor="factory_code">Código de Fabrica</Label>
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="space-y-3 sm:space-y-4"
+            >
+              <div className="mb-3 sm:mb-4 w-full">
+                <Label htmlFor="factory_code" className="block mb-1">
+                  Código de Fabrica
+                </Label>
                 <Controller
                   name="factory_code"
                   control={control}
                   render={({ field }) => (
                     <Input
                       id="factory_code"
-                      placeholder="Enter factory code"
+                      placeholder="Ingresa el código"
+                      className="w-full"
                       {...field}
                     />
                   )}
                 />
                 {errors.factory_code && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.factory_code.message}
                   </p>
                 )}
               </div>
 
-              <div className="mb-4">
-                <Label htmlFor="name">Nombre</Label>
+              <div className="mb-3 sm:mb-4 w-full">
+                <Label htmlFor="name" className="block mb-1">
+                  Nombre
+                </Label>
                 <Controller
                   name="name"
                   control={control}
                   render={({ field }) => (
-                    <Input id="name" placeholder="Enter name" {...field} />
+                    <Input
+                      id="name"
+                      placeholder="Ingresa el nombre"
+                      className="w-full"
+                      {...field}
+                    />
                   )}
                 />
                 {errors.name && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.name.message}
                   </p>
                 )}
               </div>
 
-              <div className="mb-4">
-                <Label htmlFor="description">Descripción</Label>
+              <div className="mb-3 sm:mb-4 w-full">
+                <Label htmlFor="description" className="block mb-1">
+                  Descripción
+                </Label>
                 <Controller
                   name="description"
                   control={control}
                   render={({ field }) => (
-                    <Input
+                    <Textarea
                       id="description"
-                      placeholder="Enter description"
+                      placeholder="Ingresa la descripción"
+                      className="w-full"
                       {...field}
                     />
                   )}
                 />
                 {errors.description && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.description.message}
                   </p>
                 )}
               </div>
-              <div className="mb-4">
-                <Label htmlFor="price">Precio</Label>
+              <div className="mb-3 sm:mb-4 w-full">
+                <Label htmlFor="price" className="block mb-1">
+                  Precio
+                </Label>
                 <Controller
                   name="price"
                   control={control}
                   render={({ field }) => (
                     <Input
                       id="price"
-                      type="number"
-                      placeholder="Enter price"
+                      type="text"
+                      placeholder="Ingresa el precio"
+                      className="w-full"
                       value={field.value || ""}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value);
-                        field.onChange(isNaN(value) ? "" : value);
+                        try {
+                          const value = parseFloat(e.target.value);
+                          field.onChange(isNaN(value) ? "" : value);
+                          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        } catch (error) {}
                       }}
                     />
                   )}
                 />
                 {errors.price && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.price.message}
                   </p>
                 )}
               </div>
-              <div className="mb-4">
-                <Label htmlFor="image_url">URL de Imagen</Label>
+              {/* <div className="mb-3 sm:mb-4 w-full">
+                <Label htmlFor="image_url" className="block mb-1">
+                  URL de Imagen
+                </Label>
                 <Controller
                   name="image_url"
                   control={control}
                   render={({ field }) => (
                     <Input
                       id="image_url"
-                      placeholder="Enter image URL"
+                      placeholder="Ingresa la URL de la imagen"
+                      className="w-full"
                       disabled
                       {...field}
                     />
                   )}
                 />
                 {errors.image_url && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.image_url.message}
                   </p>
                 )}
-              </div>
-              <Button type="submit" className="w-full">
-                {editingItem ? "Update Spare Part" : "Create Spare Part"}
+              </div> */}
+              <Button
+                type="submit"
+                className="w-full mt-4 text-base sm:text-lg py-2 sm:py-3"
+              >
+                {editingItem ? "Actualizar Repuesto" : "Crear Repuesto"}
               </Button>
             </form>
           </div>

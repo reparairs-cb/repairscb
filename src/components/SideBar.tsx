@@ -60,16 +60,16 @@ export const SideBar = ({ session, options }: SideBarProps) => {
         </Button>
       </SheetTrigger>
       <VisuallyHidden>
-        <SheetTitle>User Menu</SheetTitle>
+        <SheetTitle>Menú</SheetTitle>
       </VisuallyHidden>
       <SheetContent
         aria-describedby={undefined}
         side="right"
-        className="w-[300px] sm:w-[400px]"
+        className="w-[300px] sm:w-[400px] overflow-y-auto"
       >
         <div className="flex flex-col h-full">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">User Menu</h2>
+            <h2 className="text-2xl font-bold mb-4">Menú</h2>
             <div className="space-y-4">
               <MenuOptions
                 options={
@@ -88,6 +88,7 @@ export const SideBar = ({ session, options }: SideBarProps) => {
               />
             </div>
           </div>
+          <div className="min-h-[5vh]"></div>
           <Button
             variant="ghost"
             className="justify-start mt-auto text-red-800 hover:bg-red-900 hover:text-primary"
@@ -118,7 +119,7 @@ const MenuOptions = ({
     <Button
       key={index}
       variant="ghost"
-      className={cn("w-full justify-start", option.className)}
+      className={cn("w-full justify-start text-wrap text-left", option.className)}
       onClick={() => {
         option.onClick?.();
         option.onRedirect?.(router);

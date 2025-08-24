@@ -28,7 +28,7 @@ class MaintenanceTypeRepository {
   }> {
     try {
       const result = await pool.query(
-        "SELECT create_maintenance_type($1, $2, $3, $4, $5)",
+        "SELECT mnt.create_maintenance_type($1, $2, $3, $4, $5)",
         [
           maintenanceType.type,
           maintenanceType.parent_id || null,
@@ -60,7 +60,7 @@ class MaintenanceTypeRepository {
    */
   async getById(id: string): Promise<MaintenanceTypeBase | null> {
     try {
-      const result = await pool.query("SELECT get_maintenance_type_by_id($1)", [
+      const result = await pool.query("SELECT mnt.get_maintenance_type_by_id($1)", [
         id,
       ]);
 
@@ -99,7 +99,7 @@ class MaintenanceTypeRepository {
   ): Promise<MultiMaintenanceType> {
     try {
       const result = await pool.query(
-        "SELECT get_all_maintenance_types($1, $2, $3)",
+        "SELECT mnt.get_all_maintenance_types($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -145,7 +145,7 @@ class MaintenanceTypeRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await pool.query(
-        "SELECT update_maintenance_type($1, $2, $3, $4, $5)",
+        "SELECT mnt.update_maintenance_type($1, $2, $3, $4, $5)",
         [
           maintenance_type.id,
           maintenance_type.type,
@@ -176,7 +176,7 @@ class MaintenanceTypeRepository {
     deleteMaintenanceType: DeleteMaintenanceType
   ): Promise<{ id: string }> {
     try {
-      const result = await pool.query("SELECT delete_maintenance_type($1)", [
+      const result = await pool.query("SELECT mnt.delete_maintenance_type($1)", [
         deleteMaintenanceType.id,
       ]);
 
@@ -203,7 +203,7 @@ class MaintenanceTypeRepository {
   ): Promise<MaintenanceTypeBase[]> {
     try {
       const result = await pool.query(
-        "SELECT get_maintenance_type_children($1, $2)",
+        "SELECT mnt.get_maintenance_type_children($1, $2)",
         [parent_id, user_id]
       );
 
@@ -237,7 +237,7 @@ class MaintenanceTypeRepository {
    */
   async getTree(user_id: string): Promise<MaintenanceTypeWithChildren[]> {
     try {
-      const result = await pool.query("SELECT get_maintenance_types_tree($1)", [
+      const result = await pool.query("SELECT mnt.get_maintenance_types_tree($1)", [
         user_id,
       ]);
 
@@ -273,7 +273,7 @@ class MaintenanceTypeRepository {
   async hasChildren(id: string): Promise<boolean> {
     try {
       const result = await pool.query(
-        "SELECT maintenance_type_has_children($1)",
+        "SELECT mnt.maintenance_type_has_children($1)",
         [id]
       );
 

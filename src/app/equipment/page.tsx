@@ -346,8 +346,8 @@ export default function EquipmentPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       {noise && <Noise noise={noise} />}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Gestión de Equipos</h1>
+      <div className="flex items-center justify-end mb-8">
+        {/* <h1 className="text-2xl font-bold">Gestión de Equipos</h1> */}
         <Button onClick={openCreateModal}>
           <Plus className="h-4 w-4 mr-2" />
           Crear Equipo

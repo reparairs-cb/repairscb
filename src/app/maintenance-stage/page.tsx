@@ -157,14 +157,14 @@ function PlanSection({
   );
 
   return (
-    <div className="bg-white rounded-lg border shadow-sm">
+    <div className="bg-white rounded-lg border shadow-sm w-full max-w-4xl mx-auto">
       {/* Plan Header */}
       <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold">{plan.name}</h3>
-              <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-lg font-semibold break-words">{plan.name}</h3>
+              <div className="flex gap-2 flex-wrap">
                 <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
                   {plan.stages.length} etapas
                 </span>
@@ -175,32 +175,36 @@ function PlanSection({
               </div>
             </div>
             {plan.description && (
-              <p className="text-gray-600 text-sm mt-1">{plan.description}</p>
+              <p className="text-gray-600 text-sm mt-1 break-words">
+                {plan.description}
+              </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onCreateStage(plan.id)}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Agregar Etapa
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEditPlan(plan)}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => onDeletePlan(plan.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onCreateStage(plan.id)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                <span className="hidden xs:inline">Agregar Etapa</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditPlan(plan)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => onDeletePlan(plan.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -233,16 +237,16 @@ function PlanSection({
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {sortedStages.map((stage, index) => {
                 const dateInfo = getUnitTimeTypeByDays(stage.days);
                 return (
                   <div
                     key={stage.id}
-                    className="bg-gray-50 rounded-lg border p-3 hover:shadow-sm transition-shadow"
+                    className="bg-gray-50 rounded-lg border p-3 hover:shadow-sm transition-shadow flex flex-col h-full min-w-0"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded">
                           #{index + 1}
                         </span>
@@ -271,7 +275,7 @@ function PlanSection({
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-gray-700">
+                      <p className="text-sm font-medium text-gray-700 break-words">
                         Tipo:{" "}
                         {getMaintenanceTypeName(stage.maintenance_type_id)}
                       </p>
@@ -370,7 +374,8 @@ export default function MaintenancePlanPage() {
 
   useEffect(() => {
     stageForm.setValue("maintenance_plan_id", selectedPlanForStage);
-  }, [selectedPlanForStage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlanForStage, stageForm]);
 
   // Get available maintenance types for stage creation
   const getAvailableMaintenanceTypes = useCallback(
@@ -405,7 +410,7 @@ export default function MaintenancePlanPage() {
       };
       return filterAvailableTypes(maintenanceTypes);
     },
-    [allStages, editingStage, maintenanceTypes]
+    [allStages, maintenanceTypes]
   );
 
   // Validate stage value in real time
@@ -981,18 +986,18 @@ export default function MaintenancePlanPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-2 sm:px-4 py-8 max-w-full">
       {noise && <Noise noise={noise} />}
 
-      <div className="flex items-center justify-between mb-8">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 mb-8">
+        {/* <div>
           <h1 className="text-2xl font-bold">
             Gestión de Planes de Mantenimiento
           </h1>
           <p className="text-gray-600 text-sm mt-1">
             Administra planes de mantenimiento y sus etapas correspondientes
           </p>
-        </div>
+        </div> */}
         <Button onClick={openCreatePlanModal}>
           <Plus className="h-4 w-4 mr-2" />
           Crear Plan
@@ -1097,7 +1102,7 @@ export default function MaintenancePlanPage() {
       {/* Plan Modal (Create/Edit) */}
       {isPlanModalOpen && (
         <Modal onClose={handleCancelPlan}>
-          <div className="p-6">
+          <div className="max-w-[80vw] p-6 sm:max-w-md">
             <h2 className="text-xl font-semibold mb-4">
               {editingPlan
                 ? "Editar Plan de Mantenimiento"
@@ -1169,7 +1174,7 @@ export default function MaintenancePlanPage() {
       {/* Stage Modal (Create/Edit) */}
       {isStageModalOpen && selectedPlanForStage && (
         <Modal onClose={handleCancelStage}>
-          <div className="p-6">
+          <div className="max-w-[80vw] p-6 sm:max-w-md">
             <h2 className="text-xl font-semibold mb-4">
               {editingStage
                 ? "Editar Etapa de Mantenimiento"

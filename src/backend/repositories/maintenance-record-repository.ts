@@ -45,7 +45,7 @@ class MaintenanceRecordRepository {
       }
 
       const result = await this.db.query(
-        "SELECT create_maintenance_record($1, $2, $3, $4, $5, $6, $7)",
+        "SELECT mnt.create_maintenance_record($1, $2, $3, $4, $5, $6, $7)",
         [
           maintenanceRecord.equipment_id,
           new Date(maintenanceRecord.start_datetime).toISOString(),
@@ -77,7 +77,7 @@ class MaintenanceRecordRepository {
   async getById(id: string): Promise<MaintenanceRecordBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_record_by_id($1)",
+        "SELECT mnt.get_maintenance_record_by_id($1)",
         [id]
       );
 
@@ -105,7 +105,7 @@ class MaintenanceRecordRepository {
   ): Promise<MultiMaintenanceRecord> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_maintenance_records($1, $2, $3)",
+        "SELECT mnt.get_all_maintenance_records($1, $2, $3)",
         [user_id, limit, offset]
       );
 
@@ -147,7 +147,7 @@ class MaintenanceRecordRepository {
   }> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_records_with_details($1, $2, $3)",
+        "SELECT mnt.get_maintenance_records_with_details($1, $2, $3)",
         [user_id, limit, offset]
       );
 
@@ -192,7 +192,7 @@ class MaintenanceRecordRepository {
   }> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_records_by_equipment($1, $2, $3, $4)",
+        "SELECT mnt.get_maintenance_records_by_equipment($1, $2, $3, $4)",
         [equipment_id, user_id, limit, offset]
       );
 
@@ -244,7 +244,7 @@ class MaintenanceRecordRepository {
       }
 
       const result = await this.db.query(
-        "SELECT update_maintenance_record($1, $2, $3, $4, $5, $6, $7)",
+        "SELECT mnt.update_maintenance_record($1, $2, $3, $4, $5, $6, $7)",
         [
           maintenanceRecord.id,
           maintenanceRecord.equipment_id || null,
@@ -275,7 +275,7 @@ class MaintenanceRecordRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT delete_maintenance_record($1)",
+        "SELECT mnt.delete_maintenance_record($1)",
         [deleteMaintenanceRecord.id]
       );
 

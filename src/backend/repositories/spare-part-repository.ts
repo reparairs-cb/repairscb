@@ -21,7 +21,7 @@ class SparePartRepository {
   async create(sparePart: SparePartCreate): Promise<SparePartBase> {
     try {
       const result = await this.db.query(
-        "SELECT create_spare_part($1, $2, $3, $4, $5, $6)",
+        "SELECT mnt.create_spare_part($1, $2, $3, $4, $5, $6)",
         [
           sparePart.factory_code,
           sparePart.name,
@@ -54,7 +54,7 @@ class SparePartRepository {
    */
   async getById(id: string): Promise<SparePartBase | null> {
     try {
-      const result = await this.db.query("SELECT get_spare_part_by_id($1)", [
+      const result = await this.db.query("SELECT mnt.get_spare_part_by_id($1)", [
         id,
       ]);
 
@@ -97,7 +97,7 @@ class SparePartRepository {
   ): Promise<MultiSparePart> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_spare_parts($1, $2, $3)",
+        "SELECT mnt.get_all_spare_parts($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -142,7 +142,7 @@ class SparePartRepository {
   async update(sparePart: SparePartUpdate): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_spare_part($1, $2, $3, $4, $5, $6)",
+        "SELECT mnt.update_spare_part($1, $2, $3, $4, $5, $6)",
         [
           sparePart.id,
           sparePart.factory_code,
@@ -172,7 +172,7 @@ class SparePartRepository {
    */
   async delete(deleteSparePart: DeleteSparePart): Promise<{ id: string }> {
     try {
-      const result = await this.db.query("SELECT delete_spare_part($1)", [
+      const result = await this.db.query("SELECT mnt.delete_spare_part($1)", [
         deleteSparePart.id,
       ]);
 
@@ -192,7 +192,7 @@ class SparePartRepository {
 
   async isInUse(id: string): Promise<boolean> {
     try {
-      const result = await this.db.query("SELECT is_spare_part_in_use($1)", [
+      const result = await this.db.query("SELECT mnt.is_spare_part_in_use($1)", [
         id,
       ]);
       return result.rows[0].is_spare_part_in_use.in_use;
@@ -212,7 +212,7 @@ class SparePartRepository {
   ): Promise<boolean> {
     try {
       const result = await this.db.query(
-        "SELECT spare_part_factory_code_exists($1, $2, $3)",
+        "SELECT mnt.spare_part_factory_code_exists($1, $2, $3)",
         [factoryCode, userId, excludeId || null]
       );
 

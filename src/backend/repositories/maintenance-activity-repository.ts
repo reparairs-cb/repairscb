@@ -44,7 +44,7 @@ class MaintenanceActivityRepository {
   ): Promise<{ id: string; created_at: Date }> {
     try {
       const result = await this.db.query(
-        "SELECT create_maintenance_activity($1, $2, $3, $4, $5, $6)",
+        "SELECT mnt.create_maintenance_activity($1, $2, $3, $4, $5, $6)",
         [
           maintenanceActivity.maintenance_record_id,
           maintenanceActivity.activity_id,
@@ -73,7 +73,7 @@ class MaintenanceActivityRepository {
   async getById(id: string): Promise<MaintenanceActivityBase | null> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_activity_by_id($1)",
+        "SELECT mnt.get_maintenance_activity_by_id($1)",
         [id]
       );
 
@@ -98,7 +98,7 @@ class MaintenanceActivityRepository {
   ): Promise<MaintenanceActivityWithDetails[]> {
     try {
       const result = await this.db.query(
-        "SELECT get_maintenance_activities_with_details($1, $2)",
+        "SELECT mnt.get_maintenance_activities_with_details($1, $2)",
         [maintenanceRecordId, userId]
       );
 
@@ -133,7 +133,7 @@ class MaintenanceActivityRepository {
   ): Promise<MultiMaintenanceActivity> {
     try {
       const result = await this.db.query(
-        "SELECT get_all_maintenance_activities($1, $2, $3)",
+        "SELECT mnt.get_all_maintenance_activities($1, $2, $3)",
         [userId, limit, offset]
       );
 
@@ -168,7 +168,7 @@ class MaintenanceActivityRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT update_maintenance_activity($1, $2, $3, $4, $5, $6)",
+        "SELECT mnt.update_maintenance_activity($1, $2, $3, $4, $5, $6)",
         [
           maintenanceActivity.id,
           maintenanceActivity.maintenance_record_id || null,
@@ -203,7 +203,7 @@ class MaintenanceActivityRepository {
   ): Promise<{ id: string }> {
     try {
       const result = await this.db.query(
-        "SELECT delete_maintenance_activity($1, $2)",
+        "SELECT mnt.delete_maintenance_activity($1, $2)",
         [deleteActivity.id, deleteActivity.user_id]
       );
 
@@ -225,7 +225,7 @@ class MaintenanceActivityRepository {
   }> {
     try {
       const result = await this.db.query(
-        "SELECT bulk_create_maintenance_activities($1, $2, $3)",
+        "SELECT mnt.bulk_create_maintenance_activities($1, $2, $3)",
         [
           bulkCreate.maintenance_record_id,
           JSON.stringify(bulkCreate.activities),
@@ -255,7 +255,7 @@ class MaintenanceActivityRepository {
     try {
       console.log("Bulk update activities:", bulkUpdate);
       const result = await this.db.query(
-        "SELECT bulk_update_maintenance_activities($1, $2, $3)",
+        "SELECT mnt.bulk_update_maintenance_activities($1, $2, $3)",
         [
           bulkUpdate.maintenance_record_id,
           JSON.stringify(bulkUpdate.activities),

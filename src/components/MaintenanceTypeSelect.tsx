@@ -49,28 +49,26 @@ export const MaintenanceTypeSelect: React.FC<{
   emptyMessage?: string;
 }> = ({ maintenanceTypes, selectedValue, onChange, emptyMessage }) => {
   return (
-    <>
-      <Select value={selectedValue} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Seleccionar tipo de mantenimiento..." />
-        </SelectTrigger>
-        <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-          {maintenanceTypes.length > 0 ? (
-            maintenanceTypes.map((node) => (
-              <MaintenanceTypeOption
-                key={node.id}
-                node={node}
-                level={0}
-                selectedValue={selectedValue}
-              />
-            ))
-          ) : (
-            <SelectItem disabled value="none">
-              {emptyMessage || "No hay tipos de mantenimiento disponibles"}
-            </SelectItem>
-          )}
-        </SelectContent>
-      </Select>
-    </>
+    <Select value={selectedValue} onValueChange={onChange}>
+      <SelectTrigger className="w-full min-w-0 sm:min-w-[220px] px-2 py-2 text-sm sm:text-base">
+        <SelectValue placeholder="Seleccionar..." className="truncate" />
+      </SelectTrigger>
+      <SelectContent className="z-[10000] w-full sm:w-auto max-h-[40vh] sm:max-h-[60vh] overflow-y-auto">
+        {maintenanceTypes.length > 0 ? (
+          maintenanceTypes.map((node) => (
+            <MaintenanceTypeOption
+              key={node.id}
+              node={node}
+              level={0}
+              selectedValue={selectedValue}
+            />
+          ))
+        ) : (
+          <SelectItem disabled value="none">
+            {emptyMessage || "No hay tipos de mantenimiento disponibles"}
+          </SelectItem>
+        )}
+      </SelectContent>
+    </Select>
   );
 };

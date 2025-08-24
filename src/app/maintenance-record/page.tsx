@@ -219,6 +219,7 @@ export default function MaintenanceRecordsPage() {
     },
   });
 
+  const startDateTimeSelected = watch("start_datetime");
   const {
     fields: sparePartsFields,
     append: appSparePart,
@@ -532,36 +533,22 @@ export default function MaintenanceRecordsPage() {
   // Fetch mileage records when equipment is selected
   useEffect(() => {
     if (mileageRecords.length > 0) {
-      console.log(
-        "Using cached mileage records for equipment:",
-        selectedEquipmentId
-      );
-
       const todayMileageEquipment = mileageRecords.find((record) => {
-        console.log("Checking mileage record:", record);
-        console.log("Selected equipment ID:", selectedEquipmentId);
-        console.log("Today's date:", new Date().toDateString());
-        console.log("Record date:", record.record_date.toDateString());
-
         return (
           record.equipment_id === selectedEquipmentId &&
-          record.record_date.toDateString() === new Date().toDateString()
+          record.record_date.toDateString() ===
+            new Date(startDateTimeSelected).toDateString()
         );
       });
 
       if (todayMileageEquipment) {
-        console.log(
-          "Found today's mileage record for equipment:",
-          todayMileageEquipment
-        );
         setValue("mileage", todayMileageEquipment.kilometers);
         setSelectedMileageRecord(todayMileageEquipment);
       } else {
-        setValue("mileage", 0);
         setSelectedMileageRecord(null);
       }
     }
-  }, [selectedEquipmentId]);
+  }, [selectedEquipmentId, startDateTimeSelected]);
 
   if (!session || !session.user?.id) {
     return null;
@@ -632,6 +619,10 @@ export default function MaintenanceRecordsPage() {
                   maintenanceTypes
                 ),
               };
+              console.log(
+                "New maintenance record created:",
+                newMaintenanceRecord
+              );
 
               return {
                 ...item,
@@ -639,7 +630,9 @@ export default function MaintenanceRecordsPage() {
                   ? {
                       ...item.maintenance_records,
                       data: [
-                        newMaintenanceRecord,
+                        {
+                          ...newMaintenanceRecord,
+                        },
                         ...item.maintenance_records.data,
                       ].sort(
                         (a, b) =>
@@ -1178,18 +1171,19 @@ export default function MaintenanceRecordsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-2 md:px-4 py-6 md:py-8">
       {noise && <Noise noise={noise} />}
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold">
-          Gestión de Mantenimiento por Equipos
-        </h1>
-        <Button onClick={openCreateModal}>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-end mb-4 md:mb-8 gap-2 md:gap-0">
+        {/* <h1 className="text-xl sm:text-2xl font-bold">
+          Gestión de Mantenimiento de equipos
+        </h1> */}
+        <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
-          Nuevo Mantenimiento
+          <span className="hidden xs:inline">Nuevo Mantenimiento</span>
+          <span className="inline xs:hidden">Nuevo</span>
         </Button>
       </div>
-      <div className="flex flex-col md:flex-row md:items-center justify-start md:justify-between gap-2  mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-start md:justify-between gap-2 mb-4 md:mb-6">
         <div className="flex flex-col md:flex-row md:items-center justify-start md:justify-between gap-2">
           <Filter
             options={optionsFilter}
@@ -1212,7 +1206,7 @@ export default function MaintenanceRecordsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {equipment.data.map((item) => {
           const badges: {
             label: string;
@@ -1285,7 +1279,7 @@ export default function MaintenanceRecordsPage() {
       {/* Modal para crear/editar mantenimiento */}
       {isModalOpen && (
         <Modal customZIndex={2000} onClose={handleCancel}>
-          <div className="p-6 max-h-[90vh] max-w-[90vw] overflow-y-auto">
+          <div className="p-4 md:p-6 max-h-[90vh] w-full max-w-md md:max-w-[90vw] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
               {editingItem
                 ? "Editar Registro de Mantenimiento"
@@ -1293,7 +1287,7 @@ export default function MaintenanceRecordsPage() {
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Equipment Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
                 <div>
                   <Label htmlFor="equipment_id">Equipo *</Label>
                   <Controller
@@ -1311,11 +1305,17 @@ export default function MaintenanceRecordsPage() {
                           <SelectValue placeholder="Seleccionar equipo" />
                         </SelectTrigger>
                         <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
-                          {equipment.data.map((eq) => (
-                            <SelectItem key={eq.id} value={eq.id}>
-                              {eq.type} - {eq.code} ({eq.license_plate})
+                          {equipment.data.length > 0 ? (
+                            equipment.data.map((eq) => (
+                              <SelectItem key={eq.id} value={eq.id}>
+                                {eq.type} - {eq.code} ({eq.license_plate})
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem disabled value="none">
+                              No hay equipos disponibles
                             </SelectItem>
-                          ))}
+                          )}
                         </SelectContent>
                       </Select>
                     )}
@@ -1365,7 +1365,7 @@ export default function MaintenanceRecordsPage() {
               </div>
 
               {/* Date and Mileage */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
                 <div>
                   <Label htmlFor="start_datetime">
                     Fecha y Hora de Inicio *
@@ -1477,13 +1477,21 @@ export default function MaintenanceRecordsPage() {
 
               {/* Activities Section */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-2 md:mb-3 gap-2 md:gap-0">
                   <Label className="text-base font-semibold">Actividades</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleOpenSelectActivity}
+                    onClick={() => {
+                      if (watch("maintenance_type_id")) {
+                        handleOpenSelectActivity();
+                      } else {
+                        toastVariables.error(
+                          "Primero debes seleccionar un tipo de mantenimiento."
+                        );
+                      }
+                    }}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Seleccionar Actividades
@@ -1517,7 +1525,7 @@ export default function MaintenanceRecordsPage() {
                   }))}
                 />
 
-                <div className="space-y-3">
+                <div className="space-y-2 md:space-y-3">
                   {activitiesFields.map((activity, index) => (
                     <div
                       key={activity.id}
@@ -1636,7 +1644,7 @@ export default function MaintenanceRecordsPage() {
 
               {/* Spare Parts Section */}
               <div className="w-full md:w-[60%]">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-2 md:mb-3 gap-2 md:gap-0">
                   <Label className="text-base font-semibold">Repuestos</Label>
                   <Button
                     type="button"
@@ -1675,13 +1683,13 @@ export default function MaintenanceRecordsPage() {
                   name="spare_parts"
                   control={control}
                   render={() => (
-                    <div className="space-y-3">
+                    <div className="space-y-2 md:space-y-3">
                       {sparePartsFields.map((sparePart, index) => (
                         <div
                           key={index}
                           className="border rounded-lg p-4 mb-3 relative"
                         >
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                             <div>
                               <Label>
                                 Repuesto
@@ -1735,14 +1743,15 @@ export default function MaintenanceRecordsPage() {
                                 control={control}
                                 render={({ field }) => (
                                   <Input
-                                    type="number"
-                                    min="1"
-                                    value={field.value}
-                                    onChange={(e) =>
-                                      field.onChange(
-                                        parseInt(e.target.value) || 1
-                                      )
-                                    }
+                                    type="text"
+                                    value={field.value || ""}
+                                    onChange={(e) => {
+                                      try {
+                                        const val = parseInt(e.target.value);
+                                        field.onChange(isNaN(val) ? "" : val);
+                                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                      } catch (error) {}
+                                    }}
                                   />
                                 )}
                               />
@@ -1776,7 +1785,7 @@ export default function MaintenanceRecordsPage() {
                 />
               </div>
 
-              <div className="flex space-x-4">
+              <div className="flex flex-col md:flex-row gap-2 md:space-x-4">
                 <Button type="submit" className="flex-1">
                   {editingItem
                     ? "Actualizar Mantenimiento"
@@ -1794,7 +1803,7 @@ export default function MaintenanceRecordsPage() {
       {/* Modal para ver detalles de mantenimientos del equipo */}
       {isDetailsModalOpen && detailsEquipment && (
         <Modal customZIndex={1000} onClose={() => setIsDetailsModalOpen(false)}>
-          <div className="p-6 max-h-[80vh] overflow-y-auto">
+          <div className="p-4 md:p-6 max-h-[80vh] w-full max-w-[80vw] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4">
               Mantenimientos - {detailsEquipment.type} (
               {detailsEquipment.license_plate})

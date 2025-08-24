@@ -49,13 +49,13 @@ const TreeNode: React.FC<TreeNodeProps> = ({
   const indent = level * 20;
 
   return (
-    <div className="border rounded-lg m-2">
+    <div className="border rounded-lg m-1 sm:m-2">
       <div
-        className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer"
-        style={{ paddingLeft: `${16 + indent}px` }}
+        className="p-2 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-gray-50 cursor-pointer gap-2"
+        style={{ paddingLeft: `${8 + indent}px` }}
         onClick={() => hasChildren && onToggleExpand(node.id)}
       >
-        <div className="flex items-center flex-1">
+        <div className="flex items-center flex-1 w-full">
           {hasChildren && (
             <div className="mr-2">
               {isExpanded ? (
@@ -67,14 +67,16 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           )}
           {!hasChildren && <div className="w-6" />}
 
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium">{node.type}</h3>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-medium text-sm sm:text-base truncate">
+                {node.type}
+              </h3>
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                 Nivel {node.level}
               </span>
               {node.path && (
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded truncate max-w-[120px] sm:max-w-xs">
                   {node.path}
                 </span>
               )}
@@ -88,13 +90,17 @@ const TreeNode: React.FC<TreeNodeProps> = ({
           </div>
         </div>
 
-        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               onEdit(node);
             }}
+            className="w-full sm:w-auto"
           >
             Editar
           </Button>
@@ -104,6 +110,7 @@ const TreeNode: React.FC<TreeNodeProps> = ({
             onClick={() => {
               onDelete(node.id);
             }}
+            className="w-full sm:w-auto"
           >
             Eliminar
           </Button>
@@ -491,13 +498,16 @@ export default function MaintenanceTypePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
       {noise && <Noise noise={noise} />}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Tipos de Mantenimiento</h1>
-        <Button onClick={openCreateModal}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end mb-6 sm:mb-8 gap-4 sm:gap-0">
+        {/* <h1 className="text-xl sm:text-2xl font-bold">
+          Tipos de Mantenimiento
+        </h1> */}
+        <Button onClick={openCreateModal} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
-          Crear Tipo de Mantenimiento
+          <span className="hidden xs:inline">Crear Tipo de Mantenimiento</span>
+          <span className="inline xs:hidden">Crear</span>
         </Button>
       </div>
 
@@ -516,11 +526,11 @@ export default function MaintenanceTypePage() {
       </div>
 
       {maintenanceTypes.length === 0 && !noise && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">
+        <div className="text-center py-8 sm:py-12">
+          <p className="text-gray-500 text-base sm:text-lg">
             No hay tipos de mantenimiento registrados
           </p>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-gray-400 text-xs sm:text-sm mt-2">
             Haz clic en &quot;Crear Tipo de Mantenimiento&quot; para agregar el
             primer tipo
           </p>
@@ -529,8 +539,8 @@ export default function MaintenanceTypePage() {
 
       {isModalOpen && (
         <Modal onClose={handleCancel}>
-          <div className="p-6">
-            <h2 className="text-xl font-semibold mb-4">
+          <div className="p-4 sm:p-6 w-full max-w-xs sm:max-w-md mx-auto">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4">
               {editingItem
                 ? "Editar Tipo de Mantenimiento"
                 : "Crear Tipo de Mantenimiento"}
@@ -546,11 +556,12 @@ export default function MaintenanceTypePage() {
                       id="type"
                       placeholder="Ej: Preventivo, Correctivo, Predictivo"
                       {...field}
+                      className="w-full"
                     />
                   )}
                 />
                 {errors.type && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.type.message}
                   </p>
                 )}
@@ -563,7 +574,7 @@ export default function MaintenanceTypePage() {
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Seleccionar tipo padre..." />
                       </SelectTrigger>
                       <SelectContent className="z-[10000] lg:max-h-[30vh] md:max-h-[40vh] max-h-[60vh]">
@@ -581,13 +592,13 @@ export default function MaintenanceTypePage() {
                   )}
                 />
                 {errors.parent_id && (
-                  <p className="text-red-500 text-sm mt-1">
+                  <p className="text-red-500 text-xs sm:text-sm mt-1">
                     {errors.parent_id.message}
                   </p>
                 )}
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4">
                 <Button
                   type="button"
                   variant="outline"

@@ -17,7 +17,6 @@ interface MaintenanceExcel {
   Observaciones: string;
   "Total Actividades": number;
   "Total Repuestos": number;
-  Estado: string;
   Creado: string;
 }
 
@@ -30,6 +29,7 @@ interface MaintenanceActivityExcel {
   Estado: string;
   Prioridad: string;
   Observaciones: string;
+  "Prioridad Visual"?: string;
 }
 
 interface MaintenanceSparePartExcel {
@@ -100,6 +100,64 @@ const createExcelTable = async (
         bottom: { style: "thin" },
         right: { style: "thin" },
       };
+
+      // Color for Prioridad column in activities table
+      if (header === "Prioridad" && tableName === "TablaActividades") {
+        const value = String(row[header as keyof typeof row]).toLowerCase();
+        let color = undefined;
+        if (value === "inmediata" || value === "immediate") {
+          color = { argb: "FFFF0000" }; // Red
+        } else if (value === "alta" || value === "high") {
+          color = { argb: "FF977B15" }; // Amber
+        } else if (value === "media" || value === "medium") {
+          color = { argb: "FF0070C0" }; // Blue
+        } else if (value === "baja" || value === "low") {
+          color = { argb: "FF458A22" }; // Green
+        } else if (value === "no") {
+          color = { argb: "FF000000" }; // Black
+        }
+        if (color) {
+          cell.font = { ...cell.font, color };
+        }
+      }
+
+      if (header === "Estado" && tableName === "TablaActividades") {
+        const value = String(row[header as keyof typeof row]).toLowerCase();
+        let color = undefined;
+        if (value === "pending" || value === "pendiente") {
+          color = { argb: "FFFF0000" }; // Red
+        } else if (value === "in_progress" || value === "en progreso") {
+          color = { argb: "FF977B15" }; // Amber
+        } else if (value === "completed" || value === "completado") {
+          color = { argb: "FF458A22" }; // Green
+        } else {
+          console.log("Estado no reconocido:", value);
+          color = { argb: "FF000000" }; // Black
+        }
+        if (color) {
+          cell.font = { ...cell.font, color };
+        }
+      }
+
+      // Color for Prioridad Visual bar
+      if (header === "Prioridad Visual" && tableName === "TablaActividades") {
+        const prioridad = String(
+          row["Prioridad" as keyof typeof row]
+        ).toLowerCase();
+        let color = undefined;
+        if (prioridad === "inmediata" || prioridad === "immediate") {
+          color = { argb: "FFFF0000" }; // Red
+        } else if (prioridad === "alta" || prioridad === "high") {
+          color = { argb: "FFFFBF00" }; // Amber
+        } else if (prioridad === "media" || prioridad === "medium") {
+          color = { argb: "FF0070C0" }; // Blue
+        } else if (prioridad === "baja" || prioridad === "low") {
+          color = { argb: "FF00B050" }; // Green
+        }
+        if (color) {
+          cell.font = { ...cell.font, color, bold: true };
+        }
+      }
 
       // Alternar colores de filas
       if (rowIndex % 2 === 1) {
@@ -186,7 +244,6 @@ export const downloadMRExcel = async () => {
     "Total Actividades": record.activities?.length || 0,
     "Total Repuestos":
       record.spare_parts?.reduce((acc, part) => acc + part.quantity, 0) || 0,
-    Estado: record.end_datetime ? "Completado" : "En progreso",
     Creado: new Date(record.created_at).toLocaleString(),
     "ID Mantenimiento": record.id,
   }));
@@ -202,13 +259,36 @@ export const downloadMRExcel = async () => {
   const activitiesData: MaintenanceActivityExcel[] = [];
   data.forEach((record) => {
     record.activities?.forEach((activity) => {
+      const prioridadLabel = getPriorityLabel(activity.priority);
+      let bar = "";
+      switch (prioridadLabel.toLowerCase()) {
+        case "inmediata":
+        case "immediate":
+          bar = "███████████";
+          break;
+        case "alta":
+        case "high":
+          bar = "█████████";
+          break;
+        case "media":
+        case "medium":
+          bar = "██████";
+          break;
+        case "baja":
+        case "low":
+          bar = "███";
+          break;
+        default:
+          bar = "";
+      }
       activitiesData.push({
         Equipo: record.equipment?.license_plate || "",
         "Tipo Mantenimiento": record.maintenance_type?.type || "",
         "Nombre Actividad": activity.activity?.name || "",
         "Descripción Actividad": activity.activity?.description || "",
         Estado: getStatusLabel(activity.status),
-        Prioridad: getPriorityLabel(activity.priority),
+        Prioridad: prioridadLabel,
+        "Prioridad Visual": bar,
         Observaciones: activity.observations || "",
         "ID Mantenimiento": record.id,
       });

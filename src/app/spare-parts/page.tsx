@@ -110,11 +110,11 @@ export default function SparePartsPage() {
       }
 
       // Assuming the API returns the created spare part
-      const new_spare_part_data = (await res.json()) as {
+      const new_spare_part_data = (await res.json()).data as {
         id: string;
         created_at: Date;
       };
-
+      
       // Update the state with the new spare part
       const newSparePart: SparePartBase = {
         ...data,

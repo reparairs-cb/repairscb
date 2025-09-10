@@ -722,6 +722,8 @@ export default function MaintenanceRecordsPage() {
         original_activities: editingItem.activities || [],
       };
 
+      console.log("Updating maintenance record:", updatePayload);
+
       const res = await fetch(`/api/maintenance-records`, {
         method: "PUT",
         headers: {

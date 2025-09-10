@@ -280,6 +280,12 @@ export async function PUT(request: NextRequest) {
 
     let mileageRecord = body.mileage_record;
 
+    console.log("Mileage record from payload:", mileageRecord);
+    console.log("Mileage from payload:", body.mileage);
+    console.log("Start datetime from payload:", body.start_datetime);
+    console.log("Payload body:", body);
+    console.log("Mileage record date:", mileageRecord?.record_date);
+
     if (
       mileageRecord &&
       body.mileage &&
@@ -301,7 +307,7 @@ export async function PUT(request: NextRequest) {
       // Si se proporciona un kilometraje sin un registro de kilometraje existente, creamos uno nuevo
       mileageRecord = await mileageRecordService.create({
         equipment_id: body.equipment_id,
-        record_date: body.start_datetime,
+        record_date: new Date(body.start_datetime),
         kilometers: body.mileage,
         user_id: session.user.id,
       });
